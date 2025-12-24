@@ -170,4 +170,4 @@ See `CLAUDE.md` for detailed architecture guidelines.
 
 ## License
 
-MIT
+Apache 2.0
