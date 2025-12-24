@@ -1,5 +1,9 @@
 # WorldForge Architecture Guidelines
 
+## Workflow Rules
+
+- **Always ask before committing** - Get user approval before running `git commit`
+
 ## Core Principles
 
 ### 1. Pure Functions & Idempotency
