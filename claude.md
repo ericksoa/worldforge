@@ -88,8 +88,8 @@ function createRecord(timestamp: number) {
 - ~~`ue5-bridge.ts` has `console.log` in business methods~~ ✅ Fixed: converted to debugLog
 
 ### Priority 3: Make UE5Bridge Stateless
-- `UE5Bridge` class has internal mutable state
-- Consider making it a pure module with state in Zustand
+- ~~`UE5Bridge` class has internal mutable state~~ ✅ Fixed: converted to Zustand store
+- ~~Consider making it a pure module with state in Zustand~~ ✅ Done: state now in useUE5BridgeStore
 
 ## Recommended Patterns
 

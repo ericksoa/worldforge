@@ -1,4 +1,4 @@
-import * as React from 'react'
+import { create } from 'zustand'
 import type { UE5Command, WorldState } from '../../shared/types'
 import { debugLog } from '../stores/debugStore'
 
@@ -21,184 +21,180 @@ export interface UE5BridgeState {
 const DEFAULT_HOST = 'localhost'
 const DEFAULT_PORT = 8765
 
-const INITIAL_STATE: UE5BridgeState = {
+// ============================================================================
+// Zustand Store
+// ============================================================================
+
+interface UE5BridgeStore extends UE5BridgeState {
+  // Connection management
+  connect: (host?: string, port?: number) => Promise<boolean>
+  disconnect: () => void
+
+  // Command sending
+  sendCommand: (command: UE5Command) => Promise<boolean>
+
+  // Convenience methods
+  syncWorldState: (state: WorldState) => Promise<boolean>
+  setTrait: (trait: keyof WorldState['traits'], value: number) => Promise<boolean>
+  setAtmosphere: (atmosphere: WorldState['atmosphere']) => Promise<boolean>
+
+  // For testing - reset state
+  _reset: () => void
+}
+
+export const useUE5BridgeStore = create<UE5BridgeStore>((set, get) => ({
+  // Initial state
   status: 'disconnected',
   lastError: null,
   commandQueue: [],
-}
-
-// ============================================================================
-// UE5 Bridge Class
-// ============================================================================
-
-/**
- * Bridge for communicating with Unreal Engine 5 via WebSocket.
- * Manages connection state and command queuing.
- */
-class UE5Bridge {
-  private state: UE5BridgeState = { ...INITIAL_STATE }
-  private listeners: Set<(state: UE5BridgeState) => void> = new Set()
-  private reconnectTimeout: number | null = null
-
-  // --------------------------------------------------------------------------
-  // Subscription Management
-  // --------------------------------------------------------------------------
-
-  /** Subscribe to state changes. Returns unsubscribe function. */
-  subscribe(listener: (state: UE5BridgeState) => void): () => void {
-    this.listeners.add(listener)
-    listener(this.state)
-    return () => this.listeners.delete(listener)
-  }
-
-  private notify(): void {
-    this.listeners.forEach((listener) => listener(this.state))
-  }
-
-  private setState(partial: Partial<UE5BridgeState>): void {
-    this.state = { ...this.state, ...partial }
-    this.notify()
-  }
 
   // --------------------------------------------------------------------------
   // Connection Management
   // --------------------------------------------------------------------------
 
-  /** Connect to UE5 WebSocket server */
-  async connect(host: string = DEFAULT_HOST, port: number = DEFAULT_PORT): Promise<boolean> {
-    if (this.isConnectedOrConnecting()) {
-      return this.state.status === 'connected'
+  connect: async (host = DEFAULT_HOST, port = DEFAULT_PORT) => {
+    const { status } = get()
+
+    // Don't reconnect if already connected or connecting
+    if (status === 'connected' || status === 'connecting') {
+      return status === 'connected'
     }
 
-    this.setState({ status: 'connecting', lastError: null })
+    set({ status: 'connecting', lastError: null })
 
     try {
-      const connected = await this.attemptConnection(host, port)
+      const connected = await attemptConnection(host, port)
+
       if (connected) {
-        this.setState({ status: 'connected' })
-        await this.flushQueue()
+        set({ status: 'connected' })
+        await flushQueue(get, set)
         return true
       }
 
-      this.setConnectionError('Failed to connect to UE5. Is the plugin running?')
+      set({ status: 'error', lastError: 'Failed to connect to UE5. Is the plugin running?' })
       return false
     } catch (err) {
-      this.setConnectionError(err instanceof Error ? err.message : 'Connection failed')
+      const message = err instanceof Error ? err.message : 'Connection failed'
+      set({ status: 'error', lastError: message })
       return false
     }
-  }
+  },
 
-  /** Disconnect from UE5 */
-  disconnect(): void {
-    this.clearReconnectTimeout()
-    this.setState({ status: 'disconnected' })
-  }
-
-  private isConnectedOrConnecting(): boolean {
-    return this.state.status === 'connected' || this.state.status === 'connecting'
-  }
-
-  private async attemptConnection(host: string, port: number): Promise<boolean> {
-    if (!window.worldforge) {
-      return false
-    }
-    const result = await window.worldforge.connectToUE5({ host, port })
-    return result.success
-  }
-
-  private setConnectionError(message: string): void {
-    this.setState({ status: 'error', lastError: message })
-  }
-
-  private clearReconnectTimeout(): void {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout)
-      this.reconnectTimeout = null
-    }
-  }
+  disconnect: () => {
+    set({ status: 'disconnected' })
+  },
 
   // --------------------------------------------------------------------------
   // Command Sending
   // --------------------------------------------------------------------------
 
-  /** Send a command to UE5. Queues if not connected. */
-  async sendCommand(command: UE5Command): Promise<boolean> {
-    if (this.state.status !== 'connected') {
-      this.queueCommand(command)
+  sendCommand: async (command) => {
+    const { status, commandQueue } = get()
+
+    if (status !== 'connected') {
+      set({ commandQueue: [...commandQueue, command] })
+      debugLog.info(`UE5 not connected, command queued: ${command.type}`)
       return false
     }
 
-    return this.executeCommand(command)
-  }
-
-  private queueCommand(command: UE5Command): void {
-    this.setState({
-      commandQueue: [...this.state.commandQueue, command],
-    })
-    debugLog.info(`UE5 not connected, command queued: ${command.type}`)
-  }
-
-  private async executeCommand(command: UE5Command): Promise<boolean> {
-    try {
-      if (!window.worldforge) {
-        return false
-      }
-      const result = await window.worldforge.sendToUE5(command)
-      return result.success
-    } catch (err) {
-      debugLog.error(`Failed to send command to UE5: ${err}`)
-      return false
-    }
-  }
-
-  private async flushQueue(): Promise<void> {
-    const queue = [...this.state.commandQueue]
-    this.setState({ commandQueue: [] })
-
-    for (const command of queue) {
-      await this.sendCommand(command)
-    }
-  }
+    return executeCommand(command)
+  },
 
   // --------------------------------------------------------------------------
   // Convenience Methods
   // --------------------------------------------------------------------------
 
-  /** Sync the full world state to UE5 */
-  async syncWorldState(state: WorldState): Promise<boolean> {
-    return this.sendCommand({ type: 'SYNC_WORLD_STATE', state })
-  }
+  syncWorldState: async (state) => {
+    return get().sendCommand({ type: 'SYNC_WORLD_STATE', state })
+  },
 
-  /** Set a specific world trait */
-  async setTrait(trait: keyof WorldState['traits'], value: number): Promise<boolean> {
-    return this.sendCommand({ type: 'SET_TRAIT', trait, value })
-  }
+  setTrait: async (trait, value) => {
+    return get().sendCommand({ type: 'SET_TRAIT', trait, value })
+  },
 
-  /** Set the world atmosphere */
-  async setAtmosphere(atmosphere: WorldState['atmosphere']): Promise<boolean> {
-    return this.sendCommand({ type: 'SET_ATMOSPHERE', atmosphere })
-  }
+  setAtmosphere: async (atmosphere) => {
+    return get().sendCommand({ type: 'SET_ATMOSPHERE', atmosphere })
+  },
 
   // --------------------------------------------------------------------------
-  // State Accessors
+  // Testing Helper
   // --------------------------------------------------------------------------
 
-  /** Get current connection status */
-  getStatus(): ConnectionStatus {
-    return this.state.status
-  }
+  _reset: () => {
+    set({ status: 'disconnected', lastError: null, commandQueue: [] })
+  },
+}))
 
-  /** Get last error message, if any */
-  getLastError(): string | null {
-    return this.state.lastError
+// ============================================================================
+// Pure Helper Functions
+// ============================================================================
+
+/** Attempt to establish WebSocket connection */
+async function attemptConnection(host: string, port: number): Promise<boolean> {
+  if (!window.worldforge) {
+    return false
+  }
+  const result = await window.worldforge.connectToUE5({ host, port })
+  return result.success
+}
+
+/** Execute a command via the bridge */
+async function executeCommand(command: UE5Command): Promise<boolean> {
+  try {
+    if (!window.worldforge) {
+      return false
+    }
+    const result = await window.worldforge.sendToUE5(command)
+    return result.success
+  } catch (err) {
+    debugLog.error(`Failed to send command to UE5: ${err}`)
+    return false
+  }
+}
+
+/** Flush queued commands after successful connection */
+async function flushQueue(
+  get: () => UE5BridgeStore,
+  set: (partial: Partial<UE5BridgeState>) => void
+): Promise<void> {
+  const queue = [...get().commandQueue]
+  set({ commandQueue: [] })
+
+  for (const command of queue) {
+    await get().sendCommand(command)
   }
 }
 
 // ============================================================================
-// Singleton Instance
+// Legacy API (for backward compatibility)
 // ============================================================================
 
-export const ue5Bridge = new UE5Bridge()
+/**
+ * Legacy bridge object for backward compatibility.
+ * Prefer using useUE5BridgeStore hook directly.
+ */
+export const ue5Bridge = {
+  connect: (host?: string, port?: number) => useUE5BridgeStore.getState().connect(host, port),
+  disconnect: () => useUE5BridgeStore.getState().disconnect(),
+  sendCommand: (command: UE5Command) => useUE5BridgeStore.getState().sendCommand(command),
+  syncWorldState: (state: WorldState) => useUE5BridgeStore.getState().syncWorldState(state),
+  setTrait: (trait: keyof WorldState['traits'], value: number) =>
+    useUE5BridgeStore.getState().setTrait(trait, value),
+  setAtmosphere: (atmosphere: WorldState['atmosphere']) =>
+    useUE5BridgeStore.getState().setAtmosphere(atmosphere),
+  getStatus: () => useUE5BridgeStore.getState().status,
+  getLastError: () => useUE5BridgeStore.getState().lastError,
+  subscribe: (listener: (state: UE5BridgeState) => void) => {
+    // Call listener immediately with current state (matches original behavior)
+    const currentState = useUE5BridgeStore.getState()
+    listener({ status: currentState.status, lastError: currentState.lastError, commandQueue: currentState.commandQueue })
+
+    // Zustand subscribe returns unsubscribe function
+    return useUE5BridgeStore.subscribe((state) =>
+      listener({ status: state.status, lastError: state.lastError, commandQueue: state.commandQueue })
+    )
+  },
+}
 
 // ============================================================================
 // React Hook
@@ -206,20 +202,17 @@ export const ue5Bridge = new UE5Bridge()
 
 /**
  * React hook for accessing UE5 bridge state and methods.
- * Automatically subscribes to state changes.
+ * Uses Zustand store directly - automatically subscribes to state changes.
  */
 export function useUE5Bridge() {
-  const [state, setState] = React.useState<UE5BridgeState>({ ...INITIAL_STATE })
-
-  React.useEffect(() => {
-    return ue5Bridge.subscribe(setState)
-  }, [])
-
+  const state = useUE5BridgeStore()
   return {
-    ...state,
-    connect: ue5Bridge.connect.bind(ue5Bridge),
-    disconnect: ue5Bridge.disconnect.bind(ue5Bridge),
-    sendCommand: ue5Bridge.sendCommand.bind(ue5Bridge),
-    syncWorldState: ue5Bridge.syncWorldState.bind(ue5Bridge),
+    status: state.status,
+    lastError: state.lastError,
+    commandQueue: state.commandQueue,
+    connect: state.connect,
+    disconnect: state.disconnect,
+    sendCommand: state.sendCommand,
+    syncWorldState: state.syncWorldState,
   }
 }

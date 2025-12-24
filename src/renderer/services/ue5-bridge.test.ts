@@ -1,17 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mockWorldforge } from '../../test/setup'
 import { mockWorldState } from '../../test/fixtures'
-
-// Create a fresh UE5Bridge for each test by re-importing
-let ue5Bridge: typeof import('./ue5-bridge').ue5Bridge
+import { ue5Bridge, useUE5BridgeStore } from './ue5-bridge'
 
 describe('UE5Bridge', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks()
-    // Reset module to get fresh singleton
-    vi.resetModules()
-    const module = await import('./ue5-bridge')
-    ue5Bridge = module.ue5Bridge
+    // Reset Zustand store to initial state
+    useUE5BridgeStore.getState()._reset()
   })
 
   describe('initial state', () => {
