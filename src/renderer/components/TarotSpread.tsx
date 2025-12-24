@@ -168,7 +168,7 @@ export function TarotSpread() {
       )
     } catch (err) {
       setError('Failed to consult the cards. The spirits are restless...')
-      console.error('Failed to generate dilemma:', err)
+      debugLog.error(`Failed to generate dilemma: ${err}`)
     } finally {
       setIsLoading(false)
     }
