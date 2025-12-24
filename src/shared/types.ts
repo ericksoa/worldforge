@@ -1,27 +1,50 @@
-// World traits that define the game world
+// ============================================================================
+// World Traits
+// ============================================================================
+
+/**
+ * Core traits that define the game world's characteristics.
+ * All values range from 0.0 (low) to 1.0 (high).
+ */
 export interface WorldTraits {
-  militarism: number      // 0-1: peaceful to warlike
-  prosperity: number      // 0-1: impoverished to wealthy
-  religiosity: number     // 0-1: secular to devout
-  lawfulness: number      // 0-1: chaotic to orderly
-  openness: number        // 0-1: isolationist to cosmopolitan
+  /** 0 = peaceful, 1 = warlike */
+  militarism: number
+  /** 0 = impoverished, 1 = wealthy */
+  prosperity: number
+  /** 0 = secular, 1 = devout */
+  religiosity: number
+  /** 0 = chaotic, 1 = orderly */
+  lawfulness: number
+  /** 0 = isolationist, 1 = cosmopolitan */
+  openness: number
 }
 
-// Historical era definition
+// ============================================================================
+// Historical Era
+// ============================================================================
+
+/** Aesthetic configuration for an era */
+export interface EraAesthetics {
+  primaryColor: string
+  accentColor: string
+  atmosphere: string
+}
+
+/** Historical era definition for world building */
 export interface Era {
   id: string
   name: string
   period: string
   description: string
   baseTraits: Partial<WorldTraits>
-  aesthetics: {
-    primaryColor: string
-    accentColor: string
-    atmosphere: string
-  }
+  aesthetics: EraAesthetics
 }
 
-// Tarot card choice
+// ============================================================================
+// Tarot System
+// ============================================================================
+
+/** A single choice option in a tarot dilemma */
 export interface TarotChoice {
   label: string
   description: string
@@ -30,7 +53,7 @@ export interface TarotChoice {
   imagePrompt?: string
 }
 
-// Generated tarot dilemma
+/** A complete tarot card dilemma with two choices */
 export interface TarotDilemma {
   id: string
   cardName: string
@@ -41,20 +64,18 @@ export interface TarotDilemma {
   era: string
 }
 
-// World state after choices
-export interface WorldState {
-  era: Era | null
-  traits: WorldTraits
-  choices: Array<{
-    dilemma: TarotDilemma
-    chosen: 'A' | 'B'
-    timestamp: number
-  }>
-  factions: Faction[]
-  landmarks: Landmark[]
-  atmosphere: Atmosphere
+/** Record of a player's choice for a dilemma */
+export interface ChoiceRecord {
+  dilemma: TarotDilemma
+  chosen: 'A' | 'B'
+  timestamp: number
 }
 
+// ============================================================================
+// World Entities
+// ============================================================================
+
+/** A faction in the game world */
 export interface Faction {
   id: string
   name: string
@@ -63,6 +84,7 @@ export interface Faction {
   traits: string[]
 }
 
+/** A notable location in the game world */
 export interface Landmark {
   id: string
   name: string
@@ -70,6 +92,7 @@ export interface Landmark {
   description: string
 }
 
+/** The overall atmosphere of the world */
 export type Atmosphere =
   | 'war_torn'
   | 'prosperous'
@@ -78,7 +101,25 @@ export type Atmosphere =
   | 'desolate'
   | 'vibrant'
 
-// UE5 Commands
+// ============================================================================
+// World State
+// ============================================================================
+
+/** Complete state of the game world */
+export interface WorldState {
+  era: Era | null
+  traits: WorldTraits
+  choices: ChoiceRecord[]
+  factions: Faction[]
+  landmarks: Landmark[]
+  atmosphere: Atmosphere
+}
+
+// ============================================================================
+// UE5 Integration
+// ============================================================================
+
+/** Commands that can be sent to Unreal Engine 5 */
 export type UE5Command =
   | { type: 'SET_ERA'; era: Era }
   | { type: 'SET_TRAIT'; trait: keyof WorldTraits; value: number }

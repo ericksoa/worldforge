@@ -5,14 +5,67 @@ import Anthropic from '@anthropic-ai/sdk'
 import Replicate from 'replicate'
 import { config } from 'dotenv'
 
+// ============================================================================
+// Configuration
+// ============================================================================
+
 // Load .env file from the app directory
 config({ path: join(__dirname, '../../.env') })
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const WINDOW_CONFIG = {
+  width: 1400,
+  height: 900,
+  minWidth: 1200,
+  minHeight: 800,
+  backgroundColor: '#1a1a1a',
+} as const
+
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514'
+const CLAUDE_MAX_TOKENS = 1500
+
+const SDXL_MODEL = 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc'
+const SDXL_CONFIG = {
+  width: 512,
+  height: 512,
+  num_outputs: 1,
+  scheduler: 'K_EULER',
+  num_inference_steps: 25,
+  guidance_scale: 7.5,
+  negative_prompt: 'blurry, low quality, modern, photorealistic, 3d render, cartoon, anime',
+} as const
+
+/** Era descriptions for better prompt context */
+const ERA_CONTEXTS: Record<string, string> = {
+  normandy_10th:
+    '10th Century Normandy - The age of Vikings turned Norman lords. A land of conquest, faith, and feudal power struggles.',
+  byzantine_6th:
+    '6th Century Byzantium - The reign of Justinian. An empire of ancient splendor seeking to reclaim Roman glory.',
+  mongol_13th:
+    '13th Century Mongolia - The storm from the steppes. Horse lords carving the largest empire in history.',
+  japan_16th:
+    '16th Century Japan - The Sengoku period. Samurai lords vie for supremacy as the old order crumbles.',
+  egypt_14th_bce:
+    '14th Century BCE Egypt - The reign of Akhenaten. A pharaoh who dared challenge the gods themselves.',
+  viking_9th: '9th Century Scandinavia - The age of the Northmen. Raiders, traders, and explorers.',
+}
+
+// ============================================================================
+// State
+// ============================================================================
 
 let mainWindow: BrowserWindow | null = null
 let anthropic: Anthropic | null = null
 let replicate: Replicate | null = null
 
-// Initialize Claude API client
+// ============================================================================
+// Service Initialization
+// ============================================================================
+
+/** Initialize Claude API client. Returns true if successful. */
 function initClaude(): boolean {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -25,7 +78,7 @@ function initClaude(): boolean {
   return true
 }
 
-// Initialize Replicate client
+/** Initialize Replicate client. Returns true if successful. */
 function initReplicate(): boolean {
   const apiToken = process.env.REPLICATE_API_TOKEN
   if (!apiToken) {
@@ -38,22 +91,22 @@ function initReplicate(): boolean {
   return true
 }
 
+// ============================================================================
+// Window Management
+// ============================================================================
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1200,
-    minHeight: 800,
+    ...WINDOW_CONFIG,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#1a1a1a',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
-    }
+      nodeIntegration: false,
+    },
   })
 
   mainWindow.on('ready-to-show', () => {
@@ -68,28 +121,27 @@ function createWindow(): void {
   }
 }
 
-// Era descriptions for better prompt context
-const ERA_CONTEXTS: Record<string, string> = {
-  normandy_10th: '10th Century Normandy - The age of Vikings turned Norman lords. A land of conquest, faith, and feudal power struggles.',
-  byzantine_6th: '6th Century Byzantium - The reign of Justinian. An empire of ancient splendor seeking to reclaim Roman glory.',
-  mongol_13th: '13th Century Mongolia - The storm from the steppes. Horse lords carving the largest empire in history.',
-  japan_16th: '16th Century Japan - The Sengoku period. Samurai lords vie for supremacy as the old order crumbles.',
-  egypt_14th_bce: '14th Century BCE Egypt - The reign of Akhenaten. A pharaoh who dared challenge the gods themselves.',
-  viking_9th: '9th Century Scandinavia - The age of the Northmen. Raiders, traders, and explorers.'
+// ============================================================================
+// Claude API
+// ============================================================================
+
+interface DilemmaRequest {
+  era: string
+  traits: {
+    militarism: number
+    prosperity: number
+    religiosity: number
+    lawfulness: number
+    openness: number
+  }
+  cardNumber: number
 }
 
-// Handle Claude API calls from renderer
-ipcMain.handle('claude:generate-dilemma', async (_event, { era, traits, cardNumber }) => {
-  console.log('Received dilemma request:', { era, cardNumber, hasTraits: !!traits })
-
-  if (!anthropic) {
-    console.log('Claude not initialized, returning null')
-    return { success: false, dilemma: null }
-  }
-
+/** Build the prompt for generating a tarot dilemma */
+function buildDilemmaPrompt(era: string, traits: DilemmaRequest['traits'], cardNumber: number): string {
   const eraContext = ERA_CONTEXTS[era] || era
 
-  const prompt = `You are a world-builder creating ethical dilemmas for an open world game set in ${eraContext}.
+  return `You are a world-builder creating ethical dilemmas for an open world game set in ${eraContext}.
 
 Current World Traits (0.0 = low, 1.0 = high):
 - Militarism: ${traits.militarism.toFixed(2)} (how warlike vs peaceful)
@@ -130,14 +182,36 @@ Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
     "imagePrompt": "Medieval woodcut style tarot card illustration of [detailed visual description], black and white with gold accents, symbolic imagery"
   }
 }`
+}
+
+/** Strip markdown code blocks from Claude response */
+function stripMarkdownCodeBlocks(text: string): string {
+  let jsonText = text.trim()
+  if (jsonText.startsWith('```')) {
+    jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
+  }
+  return jsonText
+}
+
+/** Handle Claude dilemma generation request */
+async function handleGenerateDilemma(
+  _event: Electron.IpcMainInvokeEvent,
+  { era, traits, cardNumber }: DilemmaRequest
+): Promise<{ success: boolean; dilemma: object | null; error?: string }> {
+  console.log('Received dilemma request:', { era, cardNumber, hasTraits: !!traits })
+
+  if (!anthropic) {
+    console.log('Claude not initialized, returning null')
+    return { success: false, dilemma: null }
+  }
+
+  const prompt = buildDilemmaPrompt(era, traits, cardNumber)
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1500,
-      messages: [
-        { role: 'user', content: prompt }
-      ]
+      model: CLAUDE_MODEL,
+      max_tokens: CLAUDE_MAX_TOKENS,
+      messages: [{ role: 'user', content: prompt }],
     })
 
     const content = response.content[0]
@@ -145,14 +219,7 @@ Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
       throw new Error('Unexpected response type')
     }
 
-    // Strip markdown code blocks if present
-    let jsonText = content.text.trim()
-    if (jsonText.startsWith('```')) {
-      // Remove opening ```json or ``` and closing ```
-      jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
-    }
-
-    // Parse the JSON response
+    const jsonText = stripMarkdownCodeBlocks(content.text)
     const dilemma = JSON.parse(jsonText)
     console.log('Generated dilemma:', dilemma.cardName)
 
@@ -161,10 +228,34 @@ Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
     console.error('Claude API error:', error)
     return { success: false, dilemma: null, error: String(error) }
   }
-})
+}
 
-// Handle image generation with Replicate
-ipcMain.handle('replicate:generate-image', async (_event, { prompt }) => {
+// ============================================================================
+// Replicate Image Generation
+// ============================================================================
+
+/** Extract URL from Replicate output (handles various output formats) */
+function extractImageUrl(output: unknown): string | null {
+  if (Array.isArray(output) && output.length > 0) {
+    const first = output[0]
+    if (typeof first === 'string') {
+      return first
+    } else if (first && typeof first === 'object') {
+      return String(first)
+    }
+  } else if (typeof output === 'string') {
+    return output
+  } else if (output && typeof output === 'object') {
+    return String(output)
+  }
+  return null
+}
+
+/** Handle Replicate image generation request */
+async function handleGenerateImage(
+  _event: Electron.IpcMainInvokeEvent,
+  { prompt }: { prompt: string }
+): Promise<{ success: boolean; imageUrl: string | null; error?: string }> {
   console.log('Received image generation request:', prompt.substring(0, 50) + '...')
 
   if (!replicate) {
@@ -173,40 +264,14 @@ ipcMain.handle('replicate:generate-image', async (_event, { prompt }) => {
   }
 
   try {
-    // Using SDXL for high quality images
-    const output = await replicate.run(
-      "stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc",
-      {
-        input: {
-          prompt: prompt,
-          negative_prompt: "blurry, low quality, modern, photorealistic, 3d render, cartoon, anime",
-          width: 512,
-          height: 512,
-          num_outputs: 1,
-          scheduler: "K_EULER",
-          num_inference_steps: 25,
-          guidance_scale: 7.5,
-        }
-      }
-    )
+    const output = await replicate.run(SDXL_MODEL, {
+      input: {
+        prompt,
+        ...SDXL_CONFIG,
+      },
+    })
 
-    // Extract URL string from output (may be FileOutput object, array, or string)
-    let imageUrl: string | null = null
-    if (Array.isArray(output) && output.length > 0) {
-      // Could be FileOutput object with url() method or toString()
-      const first = output[0]
-      if (typeof first === 'string') {
-        imageUrl = first
-      } else if (first && typeof first === 'object') {
-        // FileOutput object - convert to string which gives the URL
-        imageUrl = String(first)
-      }
-    } else if (typeof output === 'string') {
-      imageUrl = output
-    } else if (output && typeof output === 'object') {
-      imageUrl = String(output)
-    }
-
+    const imageUrl = extractImageUrl(output)
     console.log('Generated image:', imageUrl)
 
     return { success: true, imageUrl }
@@ -214,26 +279,40 @@ ipcMain.handle('replicate:generate-image', async (_event, { prompt }) => {
     console.error('Replicate API error:', error)
     return { success: false, imageUrl: null, error: String(error) }
   }
-})
+}
 
-// Check if services are configured
-ipcMain.handle('services:status', () => {
-  return {
+// ============================================================================
+// IPC Handlers
+// ============================================================================
+
+function registerIpcHandlers(): void {
+  // Claude API
+  ipcMain.handle('claude:generate-dilemma', handleGenerateDilemma)
+
+  // Image Generation
+  ipcMain.handle('replicate:generate-image', handleGenerateImage)
+
+  // Service Status
+  ipcMain.handle('services:status', () => ({
     claude: anthropic !== null,
-    replicate: replicate !== null
-  }
-})
+    replicate: replicate !== null,
+  }))
 
-// Handle WebSocket connection to UE5
-ipcMain.handle('ue5:connect', async (_event, { host, port }) => {
-  console.log('Connecting to UE5 at:', host, port)
-  return { success: true }
-})
+  // UE5 Bridge (placeholder implementation)
+  ipcMain.handle('ue5:connect', async (_event, { host, port }) => {
+    console.log('Connecting to UE5 at:', host, port)
+    return { success: true }
+  })
 
-ipcMain.handle('ue5:send-command', async (_event, command) => {
-  console.log('Sending command to UE5:', command)
-  return { success: true }
-})
+  ipcMain.handle('ue5:send-command', async (_event, command) => {
+    console.log('Sending command to UE5:', command)
+    return { success: true }
+  })
+}
+
+// ============================================================================
+// App Lifecycle
+// ============================================================================
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.worldforge.app')
@@ -241,6 +320,9 @@ app.whenReady().then(() => {
   // Initialize services
   initClaude()
   initReplicate()
+
+  // Register IPC handlers
+  registerIpcHandlers()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

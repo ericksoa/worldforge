@@ -1,5 +1,21 @@
 import type { Era } from '../../shared/types'
 
+// ============================================================================
+// Types
+// ============================================================================
+
+interface EraSelectorProps {
+  onSelect: (era: Era) => void
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Trait value threshold for showing a trait badge (> this value = shown) */
+const TRAIT_BADGE_THRESHOLD = 0.6
+
+/** Available historical eras for world building */
 const ERAS: Era[] = [
   {
     id: 'normandy_10th',
@@ -105,83 +121,126 @@ const ERAS: Era[] = [
   },
 ]
 
-interface EraSelectorProps {
-  onSelect: (era: Era) => void
+// ============================================================================
+// Helper Components
+// ============================================================================
+
+/** Decorative corners for era card */
+function CornerDecorations() {
+  return (
+    <>
+      <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-gold-700 opacity-50 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-gold-700 opacity-50 group-hover:opacity-100 transition-opacity" />
+    </>
+  )
 }
+
+/** Trait badge for displaying prominent era traits */
+function TraitBadge({
+  label,
+  colorClass,
+}: {
+  label: string
+  colorClass: string
+}) {
+  return (
+    <span className={`px-2 py-1 text-xs rounded border ${colorClass}`}>
+      {label}
+    </span>
+  )
+}
+
+/** Badges showing prominent traits for an era */
+function EraTraitBadges({ traits }: { traits: Partial<Era['baseTraits']> }) {
+  const badges: Array<{ condition: boolean; label: string; colorClass: string }> = [
+    {
+      condition: (traits.militarism ?? 0) > TRAIT_BADGE_THRESHOLD,
+      label: 'Warlike',
+      colorClass: 'bg-burgundy-900/50 text-burgundy-300 border-burgundy-700',
+    },
+    {
+      condition: (traits.prosperity ?? 0) > TRAIT_BADGE_THRESHOLD,
+      label: 'Prosperous',
+      colorClass: 'bg-gold-900/50 text-gold-300 border-gold-700',
+    },
+    {
+      condition: (traits.religiosity ?? 0) > TRAIT_BADGE_THRESHOLD,
+      label: 'Devout',
+      colorClass: 'bg-purple-900/50 text-purple-300 border-purple-700',
+    },
+    {
+      condition: (traits.openness ?? 0) > TRAIT_BADGE_THRESHOLD,
+      label: 'Open',
+      colorClass: 'bg-teal-900/50 text-teal-300 border-teal-700',
+    },
+  ]
+
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {badges
+        .filter((badge) => badge.condition)
+        .map((badge) => (
+          <TraitBadge key={badge.label} label={badge.label} colorClass={badge.colorClass} />
+        ))}
+    </div>
+  )
+}
+
+/** Individual era selection card */
+function EraCard({ era, onSelect }: { era: Era; onSelect: () => void }) {
+  return (
+    <button
+      onClick={onSelect}
+      className="group relative p-6 rounded-lg border-2 border-charcoal-700
+                 bg-gradient-to-b from-charcoal-900 to-charcoal-950
+                 hover:border-gold-700 hover:from-charcoal-800 hover:to-charcoal-900
+                 transition-all duration-300 text-left
+                 focus:outline-none focus:ring-2 focus:ring-gold-500 focus:ring-offset-2 focus:ring-offset-charcoal-950"
+    >
+      <CornerDecorations />
+
+      <div className="mb-4">
+        <h3 className="font-medieval text-xl text-parchment-100 group-hover:text-gold-400 transition-colors">
+          {era.name}
+        </h3>
+        <p className="text-sm text-parchment-500 font-body italic">{era.period}</p>
+      </div>
+
+      <p className="text-parchment-400 text-sm leading-relaxed mb-4">{era.description}</p>
+
+      <EraTraitBadges traits={era.baseTraits} />
+
+      {/* Hover glow effect */}
+      <div
+        className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+        style={{
+          background: `radial-gradient(circle at center, ${era.aesthetics.accentColor}10 0%, transparent 70%)`,
+        }}
+      />
+    </button>
+  )
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
 
 export function EraSelector({ onSelect }: EraSelectorProps) {
   return (
     <div className="w-full max-w-6xl">
+      {/* Header */}
       <div className="text-center mb-12">
-        <h2 className="font-medieval text-4xl text-gold-500 text-glow mb-4">
-          Choose Your Era
-        </h2>
+        <h2 className="font-medieval text-4xl text-gold-500 text-glow mb-4">Choose Your Era</h2>
         <p className="text-parchment-400 text-lg max-w-2xl mx-auto">
-          Select the age in which your world shall be forged. Each era brings its own
-          challenges, cultures, and destinies to shape.
+          Select the age in which your world shall be forged. Each era brings its own challenges,
+          cultures, and destinies to shape.
         </p>
       </div>
 
+      {/* Era Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {ERAS.map((era) => (
-          <button
-            key={era.id}
-            onClick={() => onSelect(era)}
-            className="group relative p-6 rounded-lg border-2 border-charcoal-700
-                       bg-gradient-to-b from-charcoal-900 to-charcoal-950
-                       hover:border-gold-700 hover:from-charcoal-800 hover:to-charcoal-900
-                       transition-all duration-300 text-left
-                       focus:outline-none focus:ring-2 focus:ring-gold-500 focus:ring-offset-2 focus:ring-offset-charcoal-950"
-          >
-            {/* Decorative corner */}
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-gold-700 opacity-50 group-hover:opacity-100 transition-opacity" />
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-gold-700 opacity-50 group-hover:opacity-100 transition-opacity" />
-
-            <div className="mb-4">
-              <h3 className="font-medieval text-xl text-parchment-100 group-hover:text-gold-400 transition-colors">
-                {era.name}
-              </h3>
-              <p className="text-sm text-parchment-500 font-body italic">
-                {era.period}
-              </p>
-            </div>
-
-            <p className="text-parchment-400 text-sm leading-relaxed mb-4">
-              {era.description}
-            </p>
-
-            {/* Trait indicators */}
-            <div className="flex gap-2 flex-wrap">
-              {era.baseTraits.militarism && era.baseTraits.militarism > 0.6 && (
-                <span className="px-2 py-1 text-xs bg-burgundy-900/50 text-burgundy-300 rounded border border-burgundy-700">
-                  Warlike
-                </span>
-              )}
-              {era.baseTraits.prosperity && era.baseTraits.prosperity > 0.6 && (
-                <span className="px-2 py-1 text-xs bg-gold-900/50 text-gold-300 rounded border border-gold-700">
-                  Prosperous
-                </span>
-              )}
-              {era.baseTraits.religiosity && era.baseTraits.religiosity > 0.6 && (
-                <span className="px-2 py-1 text-xs bg-purple-900/50 text-purple-300 rounded border border-purple-700">
-                  Devout
-                </span>
-              )}
-              {era.baseTraits.openness && era.baseTraits.openness > 0.6 && (
-                <span className="px-2 py-1 text-xs bg-teal-900/50 text-teal-300 rounded border border-teal-700">
-                  Open
-                </span>
-              )}
-            </div>
-
-            {/* Hover glow effect */}
-            <div
-              className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-              style={{
-                background: `radial-gradient(circle at center, ${era.aesthetics.accentColor}10 0%, transparent 70%)`,
-              }}
-            />
-          </button>
+          <EraCard key={era.id} era={era} onSelect={() => onSelect(era)} />
         ))}
       </div>
     </div>

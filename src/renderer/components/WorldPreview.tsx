@@ -1,10 +1,19 @@
 import { useWorldStore } from '../stores/worldStore'
 import type { WorldTraits, Atmosphere } from '../../shared/types'
 
+// ============================================================================
+// Types
+// ============================================================================
+
 interface WorldPreviewProps {
   onBack: () => void
 }
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Labels for trait extremes (low and high values) */
 const TRAIT_LABELS: Record<keyof WorldTraits, { low: string; high: string }> = {
   militarism: { low: 'Peaceful', high: 'Warlike' },
   prosperity: { low: 'Impoverished', high: 'Prosperous' },
@@ -13,33 +22,45 @@ const TRAIT_LABELS: Record<keyof WorldTraits, { low: string; high: string }> = {
   openness: { low: 'Isolated', high: 'Cosmopolitan' },
 }
 
+/** Descriptions for each world atmosphere type */
 const ATMOSPHERE_DESCRIPTIONS: Record<Atmosphere, { title: string; description: string }> = {
   war_torn: {
     title: 'A Land of Conflict',
-    description: 'The drums of war echo across the land. Smoke rises from distant villages, and the roads are filled with soldiers and refugees.',
+    description:
+      'The drums of war echo across the land. Smoke rises from distant villages, and the roads are filled with soldiers and refugees.',
   },
   prosperous: {
     title: 'A Golden Age',
-    description: 'The markets bustle with trade from distant lands. The harvests are plentiful, and the people walk without fear.',
+    description:
+      'The markets bustle with trade from distant lands. The harvests are plentiful, and the people walk without fear.',
   },
   mysterious: {
     title: 'A Realm of Secrets',
-    description: 'Mists cling to ancient forests, and whispered tales speak of powers beyond mortal ken. The land holds many secrets.',
+    description:
+      'Mists cling to ancient forests, and whispered tales speak of powers beyond mortal ken. The land holds many secrets.',
   },
   sacred: {
     title: 'A Holy Realm',
-    description: 'The faithful fill the temples, and the divine presence is felt in every stone. This is a land touched by the gods.',
+    description:
+      'The faithful fill the temples, and the divine presence is felt in every stone. This is a land touched by the gods.',
   },
   desolate: {
     title: 'A Blighted Land',
-    description: 'The fields lie fallow, and the villages stand half-empty. A great shadow has fallen upon this realm.',
+    description:
+      'The fields lie fallow, and the villages stand half-empty. A great shadow has fallen upon this realm.',
   },
   vibrant: {
     title: 'A Crossroads of Cultures',
-    description: 'Travelers from distant lands fill the cities, bringing new ideas, arts, and customs. The world is vast and full of wonder.',
+    description:
+      'Travelers from distant lands fill the cities, bringing new ideas, arts, and customs. The world is vast and full of wonder.',
   },
 }
 
+// ============================================================================
+// Helper Components
+// ============================================================================
+
+/** Visual bar showing a trait value from 0 to 1 */
 function TraitBar({ trait, value }: { trait: keyof WorldTraits; value: number }) {
   const labels = TRAIT_LABELS[trait]
   const percentage = value * 100
@@ -48,9 +69,7 @@ function TraitBar({ trait, value }: { trait: keyof WorldTraits; value: number })
     <div className="mb-4">
       <div className="flex justify-between text-xs mb-1">
         <span className="text-parchment-500">{labels.low}</span>
-        <span className="text-parchment-400 font-medieval uppercase tracking-wider">
-          {trait}
-        </span>
+        <span className="text-parchment-400 font-medieval uppercase tracking-wider">{trait}</span>
         <span className="text-parchment-500">{labels.high}</span>
       </div>
       <div className="h-2 bg-charcoal-800 rounded-full overflow-hidden">
@@ -62,6 +81,41 @@ function TraitBar({ trait, value }: { trait: keyof WorldTraits; value: number })
     </div>
   )
 }
+
+/** Section header with gold dot indicator */
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="font-medieval text-xl text-parchment-200 mb-6 flex items-center gap-2">
+      <span className="w-2 h-2 bg-gold-500 rounded-full" />
+      {children}
+    </h3>
+  )
+}
+
+/** Individual choice history item */
+function ChoiceHistoryItem({
+  index,
+  cardName,
+  chosenLabel,
+}: {
+  index: number
+  cardName: string
+  chosenLabel: string
+}) {
+  return (
+    <div className="flex items-start gap-3 p-3 bg-charcoal-800/50 rounded border border-charcoal-700">
+      <span className="font-medieval text-gold-600 text-lg">{index + 1}.</span>
+      <div>
+        <p className="text-parchment-200 font-medieval text-sm">{cardName}</p>
+        <p className="text-parchment-500 text-xs mt-1">Chose: {chosenLabel}</p>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
 
 export function WorldPreview({ onBack }: WorldPreviewProps) {
   const { era, traits, choices, atmosphere, exportWorldState } = useWorldStore()
@@ -94,13 +148,11 @@ export function WorldPreview({ onBack }: WorldPreviewProps) {
         </p>
       </div>
 
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* World Traits */}
         <div className="bg-charcoal-900/50 border border-charcoal-700 rounded-lg p-6">
-          <h3 className="font-medieval text-xl text-parchment-200 mb-6 flex items-center gap-2">
-            <span className="w-2 h-2 bg-gold-500 rounded-full" />
-            World Traits
-          </h3>
+          <SectionHeader>World Traits</SectionHeader>
           {Object.entries(traits).map(([trait, value]) => (
             <TraitBar key={trait} trait={trait as keyof WorldTraits} value={value} />
           ))}
@@ -108,33 +160,22 @@ export function WorldPreview({ onBack }: WorldPreviewProps) {
 
         {/* Choice History */}
         <div className="bg-charcoal-900/50 border border-charcoal-700 rounded-lg p-6">
-          <h3 className="font-medieval text-xl text-parchment-200 mb-6 flex items-center gap-2">
-            <span className="w-2 h-2 bg-gold-500 rounded-full" />
-            Your Path ({choices.length} Choices)
-          </h3>
+          <SectionHeader>Your Path ({choices.length} Choices)</SectionHeader>
           <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
             {choices.length === 0 ? (
               <p className="text-parchment-500 italic">No choices made yet.</p>
             ) : (
               choices.map((choice, index) => (
-                <div
+                <ChoiceHistoryItem
                   key={index}
-                  className="flex items-start gap-3 p-3 bg-charcoal-800/50 rounded border border-charcoal-700"
-                >
-                  <span className="font-medieval text-gold-600 text-lg">
-                    {index + 1}.
-                  </span>
-                  <div>
-                    <p className="text-parchment-200 font-medieval text-sm">
-                      {choice.dilemma.cardName}
-                    </p>
-                    <p className="text-parchment-500 text-xs mt-1">
-                      Chose: {choice.chosen === 'A'
-                        ? choice.dilemma.choiceA.label
-                        : choice.dilemma.choiceB.label}
-                    </p>
-                  </div>
-                </div>
+                  index={index}
+                  cardName={choice.dilemma.cardName}
+                  chosenLabel={
+                    choice.chosen === 'A'
+                      ? choice.dilemma.choiceA.label
+                      : choice.dilemma.choiceB.label
+                  }
+                />
               ))
             )}
           </div>
@@ -143,10 +184,7 @@ export function WorldPreview({ onBack }: WorldPreviewProps) {
 
       {/* Era Info */}
       <div className="mt-8 bg-charcoal-900/50 border border-charcoal-700 rounded-lg p-6">
-        <h3 className="font-medieval text-xl text-parchment-200 mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-gold-500 rounded-full" />
-          Era: {era.name}
-        </h3>
+        <SectionHeader>Era: {era.name}</SectionHeader>
         <p className="text-parchment-400 font-body italic">{era.description}</p>
         <p className="text-parchment-600 text-sm mt-2">{era.period}</p>
       </div>

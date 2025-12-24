@@ -1,8 +1,74 @@
 import { create } from 'zustand'
 import type { Era, WorldTraits, WorldState, TarotDilemma, Faction, Landmark, Atmosphere } from '../../shared/types'
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+const TRAIT_MIN = 0
+const TRAIT_MAX = 1
+const TRAIT_DEFAULT = 0.5
+
+const ATMOSPHERE_THRESHOLDS = {
+  high: 0.7,
+  low: 0.3,
+} as const
+
+const DEFAULT_TRAITS: WorldTraits = {
+  militarism: TRAIT_DEFAULT,
+  prosperity: TRAIT_DEFAULT,
+  religiosity: TRAIT_DEFAULT,
+  lawfulness: TRAIT_DEFAULT,
+  openness: TRAIT_DEFAULT,
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/** Clamp a value between min and max (inclusive) */
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+/** Clamp a trait value to valid range [0, 1] */
+function clampTrait(value: number): number {
+  return clamp(value, TRAIT_MIN, TRAIT_MAX)
+}
+
+/** Determine world atmosphere based on current trait values */
+function determineAtmosphere(traits: WorldTraits, currentAtmosphere: Atmosphere): Atmosphere {
+  const { high, low } = ATMOSPHERE_THRESHOLDS
+
+  if (traits.militarism > high) return 'war_torn'
+  if (traits.prosperity > high) return 'prosperous'
+  if (traits.religiosity > high) return 'sacred'
+  if (traits.prosperity < low) return 'desolate'
+  if (traits.openness > high) return 'vibrant'
+
+  return currentAtmosphere
+}
+
+/** Apply trait effect deltas to current traits */
+function applyTraitEffects(
+  currentTraits: WorldTraits,
+  effects: Partial<WorldTraits>
+): WorldTraits {
+  const newTraits = { ...currentTraits }
+
+  for (const [traitName, delta] of Object.entries(effects)) {
+    const key = traitName as keyof WorldTraits
+    newTraits[key] = clampTrait(newTraits[key] + (delta as number))
+  }
+
+  return newTraits
+}
+
+// ============================================================================
+// Store Interface
+// ============================================================================
+
 interface WorldStore extends WorldState {
-  // Actions
   setEra: (era: Era) => void
   updateTraits: (traits: Partial<WorldTraits>) => void
   recordChoice: (dilemma: TarotDilemma, chosen: 'A' | 'B') => void
@@ -13,17 +79,13 @@ interface WorldStore extends WorldState {
   exportWorldState: () => WorldState
 }
 
-const defaultTraits: WorldTraits = {
-  militarism: 0.5,
-  prosperity: 0.5,
-  religiosity: 0.5,
-  lawfulness: 0.5,
-  openness: 0.5,
-}
+// ============================================================================
+// Store Implementation
+// ============================================================================
 
-const initialState: WorldState = {
+const INITIAL_STATE: WorldState = {
   era: null,
-  traits: { ...defaultTraits },
+  traits: { ...DEFAULT_TRAITS },
   choices: [],
   factions: [],
   landmarks: [],
@@ -31,13 +93,13 @@ const initialState: WorldState = {
 }
 
 export const useWorldStore = create<WorldStore>((set, get) => ({
-  ...initialState,
+  ...INITIAL_STATE,
 
   setEra: (era) => {
-    const baseTraits = { ...defaultTraits, ...era.baseTraits }
+    const traitsWithEraDefaults = { ...DEFAULT_TRAITS, ...era.baseTraits }
     set({
       era,
-      traits: baseTraits,
+      traits: traitsWithEraDefaults,
       choices: [],
       factions: [],
       landmarks: [],
@@ -45,46 +107,32 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
     })
   },
 
-  updateTraits: (newTraits) => {
-    set((state) => ({
-      traits: {
-        ...state.traits,
-        ...Object.fromEntries(
-          Object.entries(newTraits).map(([key, value]) => [
-            key,
-            Math.max(0, Math.min(1, value as number)), // Clamp 0-1
-          ])
-        ),
-      } as WorldTraits,
-    }))
+  updateTraits: (traitUpdates) => {
+    set((state) => {
+      const clampedUpdates = Object.fromEntries(
+        Object.entries(traitUpdates).map(([key, value]) => [
+          key,
+          clampTrait(value as number),
+        ])
+      )
+      return {
+        traits: { ...state.traits, ...clampedUpdates } as WorldTraits,
+      }
+    })
   },
 
   recordChoice: (dilemma, chosen) => {
-    const choice = chosen === 'A' ? dilemma.choiceA : dilemma.choiceB
+    const selectedChoice = chosen === 'A' ? dilemma.choiceA : dilemma.choiceB
 
     set((state) => {
-      // Apply trait effects
-      const newTraits = { ...state.traits }
-      for (const [trait, delta] of Object.entries(choice.traitEffects)) {
-        const key = trait as keyof WorldTraits
-        newTraits[key] = Math.max(0, Math.min(1, newTraits[key] + (delta as number)))
-      }
-
-      // Determine atmosphere based on traits
-      let atmosphere: Atmosphere = state.atmosphere
-      if (newTraits.militarism > 0.7) atmosphere = 'war_torn'
-      else if (newTraits.prosperity > 0.7) atmosphere = 'prosperous'
-      else if (newTraits.religiosity > 0.7) atmosphere = 'sacred'
-      else if (newTraits.prosperity < 0.3) atmosphere = 'desolate'
-      else if (newTraits.openness > 0.7) atmosphere = 'vibrant'
+      const updatedTraits = applyTraitEffects(state.traits, selectedChoice.traitEffects)
+      const newAtmosphere = determineAtmosphere(updatedTraits, state.atmosphere)
+      const choiceRecord = { dilemma, chosen, timestamp: Date.now() }
 
       return {
-        traits: newTraits,
-        choices: [
-          ...state.choices,
-          { dilemma, chosen, timestamp: Date.now() },
-        ],
-        atmosphere,
+        traits: updatedTraits,
+        choices: [...state.choices, choiceRecord],
+        atmosphere: newAtmosphere,
       }
     })
   },
@@ -106,19 +154,12 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
   },
 
   resetWorld: () => {
-    set(initialState)
+    set(INITIAL_STATE)
   },
 
   exportWorldState: () => {
-    const state = get()
-    return {
-      era: state.era,
-      traits: state.traits,
-      choices: state.choices,
-      factions: state.factions,
-      landmarks: state.landmarks,
-      atmosphere: state.atmosphere,
-    }
+    const { era, traits, choices, factions, landmarks, atmosphere } = get()
+    return { era, traits, choices, factions, landmarks, atmosphere }
   },
 }))
 
