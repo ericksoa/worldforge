@@ -1,5 +1,7 @@
 import { useWorldStore } from '../stores/worldStore'
+import { useUE5BridgeStore } from '../services/ue5-bridge'
 import type { WorldTraits, Atmosphere } from '../../shared/types'
+import type { ConnectionStatus } from '../services/ue5-bridge'
 
 // ============================================================================
 // Types
@@ -54,6 +56,14 @@ const ATMOSPHERE_DESCRIPTIONS: Record<Atmosphere, { title: string; description: 
     description:
       'Travelers from distant lands fill the cities, bringing new ideas, arts, and customs. The world is vast and full of wonder.',
   },
+}
+
+/** Display config for each UE5 connection status */
+const UE5_STATUS_CONFIG: Record<ConnectionStatus, { label: string; dotClass: string; textClass: string }> = {
+  disconnected: { label: 'UE5 Not Connected', dotClass: 'bg-charcoal-500', textClass: 'text-charcoal-400' },
+  connecting: { label: 'Connecting to UE5...', dotClass: 'bg-yellow-500 animate-pulse', textClass: 'text-yellow-400' },
+  connected: { label: 'UE5 Connected', dotClass: 'bg-emerald-500', textClass: 'text-emerald-400' },
+  error: { label: 'UE5 Connection Error', dotClass: 'bg-red-500', textClass: 'text-red-400' },
 }
 
 // ============================================================================
@@ -119,6 +129,7 @@ function ChoiceHistoryItem({
 
 export function WorldPreview({ onBack }: WorldPreviewProps) {
   const { era, traits, choices, atmosphere, exportWorldState } = useWorldStore()
+  const ue5Status = useUE5BridgeStore((state) => state.status)
 
   if (!era) return null
 
@@ -205,8 +216,10 @@ export function WorldPreview({ onBack }: WorldPreviewProps) {
       {/* UE5 Connection Status */}
       <div className="mt-8 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-charcoal-800/50 rounded-full border border-charcoal-700">
-          <span className="w-2 h-2 bg-charcoal-500 rounded-full" />
-          <span className="text-charcoal-400 text-sm">UE5 Not Connected</span>
+          <span className={`w-2 h-2 rounded-full ${UE5_STATUS_CONFIG[ue5Status].dotClass}`} />
+          <span className={`text-sm ${UE5_STATUS_CONFIG[ue5Status].textClass}`}>
+            {UE5_STATUS_CONFIG[ue5Status].label}
+          </span>
         </div>
       </div>
     </div>
