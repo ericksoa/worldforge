@@ -71,7 +71,8 @@ function applyTraitEffects(
 interface WorldStore extends WorldState {
   setEra: (era: Era) => void
   updateTraits: (traits: Partial<WorldTraits>) => void
-  recordChoice: (dilemma: TarotDilemma, chosen: 'A' | 'B') => void
+  /** Record a choice. Timestamp is injectable for testing (defaults to Date.now()). */
+  recordChoice: (dilemma: TarotDilemma, chosen: 'A' | 'B', timestamp?: number) => void
   addFaction: (faction: Faction) => void
   addLandmark: (landmark: Landmark) => void
   setAtmosphere: (atmosphere: Atmosphere) => void
@@ -121,13 +122,13 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
     })
   },
 
-  recordChoice: (dilemma, chosen) => {
+  recordChoice: (dilemma, chosen, timestamp = Date.now()) => {
     const selectedChoice = chosen === 'A' ? dilemma.choiceA : dilemma.choiceB
 
     set((state) => {
       const updatedTraits = applyTraitEffects(state.traits, selectedChoice.traitEffects)
       const newAtmosphere = determineAtmosphere(updatedTraits, state.atmosphere)
-      const choiceRecord = { dilemma, chosen, timestamp: Date.now() }
+      const choiceRecord = { dilemma, chosen, timestamp }
 
       return {
         traits: updatedTraits,

@@ -99,7 +99,7 @@ describe('worldStore', () => {
       expect(state.traits.openness).toBe(0.6) // 0.5 + 0.1
     })
 
-    it('should add timestamp to choice', () => {
+    it('should add timestamp to choice (defaults to Date.now)', () => {
       const before = Date.now()
       useWorldStore.getState().recordChoice(mockDilemma, 'A')
       const after = Date.now()
@@ -107,6 +107,14 @@ describe('worldStore', () => {
       const timestamp = useWorldStore.getState().choices[0].timestamp
       expect(timestamp).toBeGreaterThanOrEqual(before)
       expect(timestamp).toBeLessThanOrEqual(after)
+    })
+
+    it('should use injected timestamp when provided (deterministic)', () => {
+      const fixedTimestamp = 1700000000000
+      useWorldStore.getState().recordChoice(mockDilemma, 'A', fixedTimestamp)
+
+      const timestamp = useWorldStore.getState().choices[0].timestamp
+      expect(timestamp).toBe(fixedTimestamp)
     })
 
     it('should set atmosphere to war_torn when militarism > 0.7', () => {
