@@ -117,17 +117,29 @@ const MOCK_DILEMMAS: Record<string, TarotDilemma[]> = {
 }
 
 // ============================================================================
+// Types
+// ============================================================================
+
+/** Options for generateDilemma, primarily for testing */
+export interface GenerateDilemmaOptions {
+  /** Override mock delay in ms (0 to skip delay, useful for tests) */
+  mockDelayMs?: number
+}
+
+// ============================================================================
 // API Functions
 // ============================================================================
 
 /**
  * Generate a tarot dilemma using Claude API.
  * Falls back to mock data if API is unavailable or fails.
+ * @param options - Optional config, primarily for testing (e.g., mockDelayMs: 0)
  */
 export async function generateDilemma(
   eraId: string,
   currentTraits: WorldTraits,
-  cardNumber: number
+  cardNumber: number,
+  options: GenerateDilemmaOptions = {}
 ): Promise<TarotDilemma> {
   debugLog.info(`Generating dilemma for ${eraId}, card #${cardNumber}`)
 
@@ -136,7 +148,7 @@ export async function generateDilemma(
     return apiDilemma
   }
 
-  return getFallbackDilemma(eraId, cardNumber)
+  return getFallbackDilemma(eraId, cardNumber, options.mockDelayMs)
 }
 
 /**
@@ -208,17 +220,30 @@ async function tryGenerateDilemmaFromAPI(
   }
 }
 
-/** Get a mock dilemma as fallback when API is unavailable */
-async function getFallbackDilemma(eraId: string, cardNumber: number): Promise<TarotDilemma> {
+/** Calculate mock delay with random variance */
+function calculateMockDelay(): number {
+  return MOCK_DELAY_MIN_MS + Math.random() * MOCK_DELAY_VARIANCE_MS
+}
+
+/**
+ * Get a mock dilemma as fallback when API is unavailable.
+ * @param delayMs - Injectable delay in ms for testing (defaults to random 800-1200ms)
+ */
+async function getFallbackDilemma(
+  eraId: string,
+  cardNumber: number,
+  delayMs: number = calculateMockDelay()
+): Promise<TarotDilemma> {
   debugLog.info('Using mock dilemma data')
 
   const dilemmasForEra = MOCK_DILEMMAS[eraId] ?? MOCK_DILEMMAS['normandy_10th']
   const dilemmaIndex = (cardNumber - 1) % dilemmasForEra.length
   const dilemma = { ...dilemmasForEra[dilemmaIndex], cardNumber }
 
-  // Simulate network delay for a realistic feel
-  const delay = MOCK_DELAY_MIN_MS + Math.random() * MOCK_DELAY_VARIANCE_MS
-  await new Promise((resolve) => setTimeout(resolve, delay))
+  // Simulate network delay for a realistic feel (skip if delayMs is 0)
+  if (delayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+  }
 
   return dilemma
 }

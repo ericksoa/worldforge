@@ -43,7 +43,7 @@ describe('claude service', () => {
         dilemma: null,
       })
 
-      const result = await generateDilemma('normandy_10th', mockWorldTraits, 1)
+      const result = await generateDilemma('normandy_10th', mockWorldTraits, 1, { mockDelayMs: 0 })
 
       // Should still return a valid dilemma (from mock data)
       expect(result).toBeDefined()
@@ -54,7 +54,7 @@ describe('claude service', () => {
     it('should fall back to mock data when API throws', async () => {
       mockWorldforge.generateDilemma.mockRejectedValue(new Error('API error'))
 
-      const result = await generateDilemma('normandy_10th', mockWorldTraits, 1)
+      const result = await generateDilemma('normandy_10th', mockWorldTraits, 1, { mockDelayMs: 0 })
 
       expect(result).toBeDefined()
       expect(result.cardName).toBeDefined()
@@ -66,8 +66,8 @@ describe('claude service', () => {
         dilemma: null,
       })
 
-      const card1 = await generateDilemma('normandy_10th', mockWorldTraits, 1)
-      const card2 = await generateDilemma('normandy_10th', mockWorldTraits, 2)
+      const card1 = await generateDilemma('normandy_10th', mockWorldTraits, 1, { mockDelayMs: 0 })
+      const card2 = await generateDilemma('normandy_10th', mockWorldTraits, 2, { mockDelayMs: 0 })
 
       // Different cards should have different names
       expect(card1.cardName).not.toBe(card2.cardName)
@@ -88,7 +88,7 @@ describe('claude service', () => {
     it('should log errors to debug store', async () => {
       mockWorldforge.generateDilemma.mockRejectedValue(new Error('Test error'))
 
-      await generateDilemma('normandy_10th', mockWorldTraits, 1)
+      await generateDilemma('normandy_10th', mockWorldTraits, 1, { mockDelayMs: 0 })
 
       const logs = useDebugStore.getState().logs
       expect(logs.some(l => l.type === 'error')).toBe(true)
@@ -99,7 +99,7 @@ describe('claude service', () => {
       // @ts-ignore - Testing undefined case
       window.worldforge = undefined
 
-      const result = await generateDilemma('normandy_10th', mockWorldTraits, 1)
+      const result = await generateDilemma('normandy_10th', mockWorldTraits, 1, { mockDelayMs: 0 })
 
       expect(result).toBeDefined()
       expect(result.cardName).toBeDefined()
@@ -113,7 +113,7 @@ describe('claude service', () => {
         dilemma: null,
       })
 
-      const result = await generateDilemma('unknown_era', mockWorldTraits, 1)
+      const result = await generateDilemma('unknown_era', mockWorldTraits, 1, { mockDelayMs: 0 })
 
       expect(result).toBeDefined()
       expect(result.cardName).toBeDefined()
