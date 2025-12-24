@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import { app, BrowserWindow, ipcMain, protocol, net as electronNet } from 'electron'
+import * as net from 'net'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -71,6 +72,7 @@ let mainWindow: BrowserWindow | null = null
 let anthropic: Anthropic | null = null
 let replicate: Replicate | null = null
 let useMockImages = false
+let ue5Socket: net.Socket | null = null
 
 // ============================================================================
 // Service Initialization
@@ -118,7 +120,7 @@ function registerPlaceholderProtocol(): void {
   protocol.handle(PLACEHOLDER_PROTOCOL, (request) => {
     const filename = request.url.replace(`${PLACEHOLDER_PROTOCOL}://`, '')
     const filepath = join(PLACEHOLDER_IMAGES_DIR, filename)
-    return net.fetch(pathToFileURL(filepath).toString())
+    return electronNet.fetch(pathToFileURL(filepath).toString())
   })
 }
 
@@ -343,15 +345,63 @@ function registerIpcHandlers(): void {
     mockImages: useMockImages,
   }))
 
-  // UE5 Bridge (placeholder implementation)
+  // UE5 Bridge - TCP connection
   ipcMain.handle('ue5:connect', async (_event, { host, port }) => {
     console.log('Connecting to UE5 at:', host, port)
-    return { success: true }
+
+    // Disconnect existing socket if any
+    if (ue5Socket) {
+      ue5Socket.destroy()
+      ue5Socket = null
+    }
+
+    return new Promise((resolve) => {
+      const socket = new net.Socket()
+      const timeout = setTimeout(() => {
+        socket.destroy()
+        console.log('UE5 connection timeout')
+        resolve({ success: false })
+      }, 5000)
+
+      socket.connect(port, host, () => {
+        clearTimeout(timeout)
+        ue5Socket = socket
+        console.log('Connected to UE5')
+        resolve({ success: true })
+      })
+
+      socket.on('data', (data) => {
+        console.log('UE5 response:', data.toString())
+      })
+
+      socket.on('error', (err) => {
+        clearTimeout(timeout)
+        console.error('UE5 connection error:', err.message)
+        resolve({ success: false })
+      })
+
+      socket.on('close', () => {
+        console.log('UE5 connection closed')
+        ue5Socket = null
+      })
+    })
   })
 
   ipcMain.handle('ue5:send-command', async (_event, command) => {
-    console.log('Sending command to UE5:', command)
-    return { success: true }
+    if (!ue5Socket || ue5Socket.destroyed) {
+      console.log('UE5 not connected, cannot send command')
+      return { success: false }
+    }
+
+    try {
+      const json = JSON.stringify(command) + '\n'
+      console.log('Sending to UE5:', json.trim())
+      ue5Socket.write(json)
+      return { success: true }
+    } catch (err) {
+      console.error('Error sending to UE5:', err)
+      return { success: false }
+    }
   })
 }
 
