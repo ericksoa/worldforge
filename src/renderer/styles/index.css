@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply antialiased;
+    background: linear-gradient(
+      135deg,
+      theme('colors.charcoal.950') 0%,
+      theme('colors.charcoal.900') 50%,
+      theme('colors.burgundy.950') 100%
+    );
+    min-height: 100vh;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-charcoal-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-charcoal-600 rounded;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-charcoal-500;
+  }
+}
+
+@layer components {
+  /* Parchment texture overlay */
+  .parchment-bg {
+    position: relative;
+    background: linear-gradient(
+      145deg,
+      theme('colors.parchment.200') 0%,
+      theme('colors.parchment.300') 50%,
+      theme('colors.parchment.400') 100%
+    );
+  }
+
+  .parchment-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.08;
+    pointer-events: none;
+  }
+
+  /* Woodcut-style border */
+  .woodcut-border {
+    @apply relative border-4 border-charcoal-800;
+    box-shadow:
+      inset 0 0 10px rgba(0, 0, 0, 0.3),
+      0 4px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .woodcut-border::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 2px solid theme('colors.gold.700');
+    pointer-events: none;
+  }
+
+  /* Glowing text for titles */
+  .text-glow {
+    text-shadow:
+      0 0 10px theme('colors.gold.500'),
+      0 0 20px theme('colors.gold.600'),
+      0 0 30px theme('colors.gold.700');
+  }
+
+  /* Card flip container */
+  .card-flip {
+    perspective: 1000px;
+  }
+
+  .card-flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+  }
+
+  .card-flip.flipped .card-flip-inner {
+    transform: rotateY(180deg);
+  }
+
+  .card-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+  }
+
+  .card-face-back {
+    transform: rotateY(180deg);
+  }
+
+  /* Medieval button style */
+  .btn-medieval {
+    @apply relative px-6 py-3 font-medieval text-sm uppercase tracking-wider;
+    @apply bg-gradient-to-b from-burgundy-700 to-burgundy-900;
+    @apply text-parchment-100 border-2 border-gold-700;
+    @apply transition-all duration-300;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .btn-medieval:hover {
+    @apply from-burgundy-600 to-burgundy-800 border-gold-500;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      0 6px 16px rgba(0, 0, 0, 0.5),
+      0 0 20px theme('colors.gold.600');
+  }
+
+  .btn-medieval:active {
+    @apply from-burgundy-800 to-burgundy-950;
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+}
+
+@layer utilities {
+  /* Aged paper effect */
+  .aged-paper {
+    filter: sepia(0.15) contrast(1.05);
+  }
+
+  /* Vignette overlay */
+  .vignette::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 40%,
+      rgba(0, 0, 0, 0.4) 100%
+    );
+    pointer-events: none;
+  }
+}
