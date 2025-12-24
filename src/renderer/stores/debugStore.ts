@@ -31,7 +31,7 @@ export const useDebugStore = create<DebugStore>((set, get) => ({
       data,
     }
     set((state) => ({
-      logs: [...state.logs.slice(-50), entry], // Keep last 50 logs
+      logs: [...state.logs.slice(-49), entry], // Keep last 50 logs
       nextId: state.nextId + 1,
     }))
   },
