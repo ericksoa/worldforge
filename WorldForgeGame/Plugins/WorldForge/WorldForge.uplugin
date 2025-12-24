@@ -1,0 +1,23 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "WorldForge",
+  "Description": "AI-driven world generation plugin that receives commands from the WorldForge Electron app",
+  "Category": "World Building",
+  "CreatedBy": "WorldForge",
+  "CreatedByURL": "",
+  "DocsURL": "",
+  "MarketplaceURL": "",
+  "CanContainContent": true,
+  "IsBetaVersion": true,
+  "IsExperimentalVersion": false,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "WorldForge",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

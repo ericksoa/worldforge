@@ -51,8 +51,6 @@ WorldForge uses Claude AI to generate morally complex dilemmas set in historical
 ### Setup
 
 ```bash
-cd electron-app
-
 # Install dependencies
 npm install
 
@@ -88,25 +86,37 @@ USE_MOCK_IMAGES=true
 | 14th Century BCE Egypt | Pharaohs and the Nile's bounty |
 | 9th Century Scandinavia | Gods, raids, and the sea |
 
-## Architecture
+## Project Structure
 
 ```
-worldforge/
-├── electron-app/           # Desktop application
-│   ├── src/
-│   │   ├── main/           # Electron main process
-│   │   ├── preload/        # IPC bridge
-│   │   ├── renderer/       # React UI
-│   │   │   ├── components/ # TarotCard, EraSelector, etc.
-│   │   │   ├── services/   # Claude API, UE5 bridge
-│   │   │   └── stores/     # Zustand state management
-│   │   └── shared/         # Types, utilities
-│   └── ...
-└── ue5-plugin/             # Unreal Engine 5 plugin
-    └── WorldForge/
+src/
+├── main/              # Electron main process
+│   └── index.ts       # App entry, IPC handlers, Claude API
+├── preload/           # Context bridge (IPC security layer)
+│   └── index.ts       # Exposes worldforge API to renderer
+├── renderer/          # React application
+│   ├── App.tsx        # Root component
+│   ├── components/    # UI components
+│   │   ├── TarotCard.tsx      # Interactive card with flip animation
+│   │   ├── TarotSpread.tsx    # Card pair display & selection
+│   │   ├── EraSelector.tsx    # Historical era picker
+│   │   ├── WorldPreview.tsx   # Trait visualization
+│   │   └── DebugPanel.tsx     # Dev tools overlay
+│   ├── services/      # External integrations
+│   │   ├── claude.ts          # Dilemma generation
+│   │   └── ue5-bridge.ts      # WebSocket to UE5
+│   └── stores/        # Zustand state
+│       ├── worldStore.ts      # World traits, choices, era
+│       └── debugStore.ts      # Debug logging
+├── shared/            # Shared between processes
+│   ├── types.ts               # TypeScript interfaces
+│   └── placeholder-images.ts  # Mock image system
+└── test/              # Test utilities
+    ├── setup.ts               # Vitest configuration
+    └── fixtures.ts            # Test data factories
 ```
 
-### UE5 Integration
+## UE5 Integration
 
 The Electron app connects to Unreal Engine via WebSocket:
 
@@ -124,8 +134,11 @@ Electron App ◄──── WebSocket (port 8765) ────► UE5 WorldForg
 ## Development
 
 ```bash
-# Run tests
+# Run tests (watch mode)
 npm test
+
+# Run tests once
+npm run test:run
 
 # Run tests with coverage
 npm run test:coverage

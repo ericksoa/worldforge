@@ -1,26 +1,56 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
-out/
+# Build outputs
+electron-app/out/
+electron-app/dist/
 
-# Environment variables (contains API keys)
+# Environment
 .env
+.env.local
 
-# Editor/IDE
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# OS
 .DS_Store
+Thumbs.db
+
+# UE5 Build Artifacts
+WorldForgeGame/Binaries/
+WorldForgeGame/Intermediate/
+WorldForgeGame/Saved/
+WorldForgeGame/DerivedDataCache/
+WorldForgeGame/.vsconfig
+WorldForgeGame/*.sln
+
+# UE5 Plugin Build Artifacts
+WorldForgeGame/Plugins/*/Binaries/
+WorldForgeGame/Plugins/*/Intermediate/
+
+# Visual Studio files
+*.sln
+*.suo
+*.vcxproj*
+*.sdf
+*.opensdf
+*.opendb
+*.VC.db
+*.VC.opendb
+
+# Xcode files
+*.xcworkspace/
+*.xcodeproj/
+
+# JetBrains Rider
+.idea/
 
 # Logs
 *.log
 npm-debug.log*
 
-# TypeScript cache
-*.tsbuildinfo
-
-# Test coverage
-coverage/
+# Cache
+.cache/
