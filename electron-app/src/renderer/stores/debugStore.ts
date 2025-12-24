@@ -4,7 +4,7 @@ import { create } from 'zustand'
 // Types
 // ============================================================================
 
-export type LogType = 'request' | 'response' | 'error' | 'info'
+export type LogType = 'request' | 'response' | 'error' | 'info' | 'warn'
 
 export interface DebugLogEntry {
   id: number
@@ -74,6 +74,9 @@ export const useDebugStore = create<DebugStore>((set, get) => ({
 export const debugLog = {
   info: (message: string, data?: unknown) =>
     useDebugStore.getState().addLog('info', message, data),
+
+  warn: (message: string, data?: unknown) =>
+    useDebugStore.getState().addLog('warn', message, data),
 
   request: (message: string, data?: unknown) =>
     useDebugStore.getState().addLog('request', message, data),

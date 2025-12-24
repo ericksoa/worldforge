@@ -7,6 +7,7 @@
 
 class UWorldForgeWebSocketServer;
 class UWorldForgeDebugWidget;
+class AWorldForgeSettlementActor;
 
 /**
  * Main subsystem for WorldForge functionality.
@@ -62,6 +63,16 @@ public:
     UFUNCTION(BlueprintCallable, Category = "WorldForge")
     void SetTrait(EWorldForgeTrait Trait, float Value);
 
+    // Settlement/Landmark Management
+    UFUNCTION(BlueprintPure, Category = "WorldForge|Landmarks")
+    int32 GetSpawnedLandmarkCount() const { return SpawnedActors.Num(); }
+
+    UFUNCTION(BlueprintCallable, Category = "WorldForge|Landmarks")
+    bool DestroySettlement(const FString& LandmarkId);
+
+    UFUNCTION(BlueprintCallable, Category = "WorldForge|Landmarks")
+    void DestroyAllSettlements();
+
     // Events
     UPROPERTY(BlueprintAssignable, Category = "WorldForge")
     FOnWorldStateChanged OnWorldStateChanged;
@@ -88,9 +99,26 @@ private:
     /** Flag to indicate we want to show the debug widget (polls until successful) */
     bool bWantsDebugWidget = false;
 
+    // Command handlers
     void HandleSetEra(const TSharedPtr<FJsonObject>& Data);
     void HandleSetTrait(const TSharedPtr<FJsonObject>& Data);
     void HandleSetAtmosphere(const TSharedPtr<FJsonObject>& Data);
     void HandleSpawnSettlement(const TSharedPtr<FJsonObject>& Data);
     void HandleSyncWorldState(const TSharedPtr<FJsonObject>& Data);
+
+    // Settlement spawning
+    UPROPERTY()
+    TMap<FString, TObjectPtr<AWorldForgeSettlementActor>> SpawnedActors;
+
+    /** Minimum distance between spawned settlements (in Unreal units) */
+    float MinimumSpawnDistance = 500.0f;
+
+    /** Spawn radius from world origin */
+    float SpawnRadius = 5000.0f;
+
+    /** Find a valid spawn location that doesn't overlap with existing settlements */
+    FVector FindValidSpawnLocation();
+
+    /** Spawn a settlement actor with the given landmark data */
+    AWorldForgeSettlementActor* SpawnSettlementActor(const FWorldForgeLandmark& Landmark);
 };

@@ -1,6 +1,7 @@
 #include "WorldForgeSubsystem.h"
 #include "WorldForgeWebSocketServer.h"
 #include "WorldForgeDebugWidget.h"
+#include "WorldForgeSettlementActor.h"
 #include "Json.h"
 #include "JsonUtilities.h"
 #include "Blueprint/UserWidget.h"
@@ -297,26 +298,55 @@ void UWorldForgeSubsystem::HandleSetAtmosphere(const TSharedPtr<FJsonObject>& Da
 void UWorldForgeSubsystem::HandleSpawnSettlement(const TSharedPtr<FJsonObject>& Data)
 {
     const TSharedPtr<FJsonObject>* SettlementObj;
-    if (Data->TryGetObjectField(TEXT("settlement"), SettlementObj))
+    if (!Data->TryGetObjectField(TEXT("settlement"), SettlementObj))
     {
-        FWorldForgeLandmark Landmark;
-        (*SettlementObj)->TryGetStringField(TEXT("id"), Landmark.Id);
-        (*SettlementObj)->TryGetStringField(TEXT("name"), Landmark.Name);
-        (*SettlementObj)->TryGetStringField(TEXT("description"), Landmark.Description);
+        UE_LOG(LogTemp, Warning, TEXT("WorldForge: SPAWN_SETTLEMENT missing settlement object"));
+        return;
+    }
 
-        FString TypeName;
-        if ((*SettlementObj)->TryGetStringField(TEXT("type"), TypeName))
-        {
-            if (TypeName == TEXT("settlement")) Landmark.Type = EWorldForgeLandmarkType::Settlement;
-            else if (TypeName == TEXT("fortress")) Landmark.Type = EWorldForgeLandmarkType::Fortress;
-            else if (TypeName == TEXT("monastery")) Landmark.Type = EWorldForgeLandmarkType::Monastery;
-            else if (TypeName == TEXT("ruin")) Landmark.Type = EWorldForgeLandmarkType::Ruin;
-            else if (TypeName == TEXT("natural")) Landmark.Type = EWorldForgeLandmarkType::Natural;
-        }
+    FWorldForgeLandmark Landmark;
+    (*SettlementObj)->TryGetStringField(TEXT("id"), Landmark.Id);
+    (*SettlementObj)->TryGetStringField(TEXT("name"), Landmark.Name);
+    (*SettlementObj)->TryGetStringField(TEXT("description"), Landmark.Description);
 
-        WorldState.Landmarks.Add(Landmark);
-        OnWorldStateChanged.Broadcast(WorldState);
-        UE_LOG(LogTemp, Log, TEXT("WorldForge: Spawned settlement %s"), *Landmark.Name);
+    FString TypeName;
+    if ((*SettlementObj)->TryGetStringField(TEXT("type"), TypeName))
+    {
+        if (TypeName == TEXT("settlement")) Landmark.Type = EWorldForgeLandmarkType::Settlement;
+        else if (TypeName == TEXT("fortress")) Landmark.Type = EWorldForgeLandmarkType::Fortress;
+        else if (TypeName == TEXT("monastery")) Landmark.Type = EWorldForgeLandmarkType::Monastery;
+        else if (TypeName == TEXT("ruin")) Landmark.Type = EWorldForgeLandmarkType::Ruin;
+        else if (TypeName == TEXT("natural")) Landmark.Type = EWorldForgeLandmarkType::Natural;
+    }
+
+    // Check for duplicate
+    if (SpawnedActors.Contains(Landmark.Id))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("WorldForge: Settlement '%s' already exists, skipping"), *Landmark.Id);
+        return;
+    }
+
+    // Find spawn location
+    Landmark.Location = FindValidSpawnLocation();
+
+    // Add to world state
+    WorldState.Landmarks.Add(Landmark);
+
+    // Spawn the actor
+    AWorldForgeSettlementActor* SpawnedActor = SpawnSettlementActor(Landmark);
+    if (SpawnedActor)
+    {
+        SpawnedActors.Add(Landmark.Id, SpawnedActor);
+        UE_LOG(LogTemp, Log, TEXT("WorldForge: Spawned settlement '%s' at %s"),
+               *Landmark.Name, *Landmark.Location.ToString());
+    }
+
+    OnWorldStateChanged.Broadcast(WorldState);
+
+    // Update debug widget
+    if (DebugWidget)
+    {
+        DebugWidget->UpdateWorldState(WorldState);
     }
 }
 
@@ -376,3 +406,134 @@ void UWorldForgeSubsystem::HandleSyncWorldState(const TSharedPtr<FJsonObject>& D
     }
 }
 
+FVector UWorldForgeSubsystem::FindValidSpawnLocation()
+{
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        return FVector::ZeroVector;
+    }
+
+    const float HeightOffset = 50.0f; // Slight offset above ground
+    const int32 MaxAttempts = 50;
+    const float LocalSpawnRadius = 1000.0f; // Spawn within 10 meters of player
+
+    // Try to spawn near the player
+    FVector SpawnCenter = FVector::ZeroVector;
+    APlayerController* PC = World->GetFirstPlayerController();
+    if (PC && PC->GetPawn())
+    {
+        SpawnCenter = PC->GetPawn()->GetActorLocation();
+    }
+
+    for (int32 Attempt = 0; Attempt < MaxAttempts; ++Attempt)
+    {
+        // Generate random XY within bounds around player/origin
+        FVector TestLocation;
+        TestLocation.X = SpawnCenter.X + FMath::RandRange(-LocalSpawnRadius, LocalSpawnRadius);
+        TestLocation.Y = SpawnCenter.Y + FMath::RandRange(-LocalSpawnRadius, LocalSpawnRadius);
+        TestLocation.Z = SpawnCenter.Z + HeightOffset;
+
+        // Line trace down to find ground
+        FHitResult HitResult;
+        FVector TraceStart = TestLocation + FVector(0, 0, 1000.0f);
+        FVector TraceEnd = TestLocation - FVector(0, 0, 5000.0f);
+
+        if (World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_WorldStatic))
+        {
+            TestLocation = HitResult.ImpactPoint + FVector(0, 0, HeightOffset);
+        }
+
+        // Check minimum distance from existing settlements
+        bool bTooClose = false;
+        for (const auto& Pair : SpawnedActors)
+        {
+            if (Pair.Value && FVector::Dist(TestLocation, Pair.Value->GetActorLocation()) < MinimumSpawnDistance)
+            {
+                bTooClose = true;
+                break;
+            }
+        }
+
+        if (!bTooClose)
+        {
+            return TestLocation;
+        }
+    }
+
+    // Fallback: return location near player/origin
+    UE_LOG(LogTemp, Warning, TEXT("WorldForge: Could not find non-overlapping spawn location after %d attempts, using fallback near player"), MaxAttempts);
+    return FVector(
+        SpawnCenter.X + FMath::RandRange(-LocalSpawnRadius, LocalSpawnRadius),
+        SpawnCenter.Y + FMath::RandRange(-LocalSpawnRadius, LocalSpawnRadius),
+        SpawnCenter.Z + HeightOffset
+    );
+}
+
+AWorldForgeSettlementActor* UWorldForgeSubsystem::SpawnSettlementActor(const FWorldForgeLandmark& Landmark)
+{
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        UE_LOG(LogTemp, Error, TEXT("WorldForge: Cannot spawn settlement - no world"));
+        return nullptr;
+    }
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+    AWorldForgeSettlementActor* Actor = World->SpawnActor<AWorldForgeSettlementActor>(
+        AWorldForgeSettlementActor::StaticClass(),
+        Landmark.Location,
+        FRotator::ZeroRotator,
+        SpawnParams
+    );
+
+    if (Actor)
+    {
+        Actor->InitializeFromLandmark(Landmark);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("WorldForge: Failed to spawn settlement actor for '%s'"), *Landmark.Name);
+    }
+
+    return Actor;
+}
+
+bool UWorldForgeSubsystem::DestroySettlement(const FString& LandmarkId)
+{
+    if (TObjectPtr<AWorldForgeSettlementActor>* ActorPtr = SpawnedActors.Find(LandmarkId))
+    {
+        if (*ActorPtr)
+        {
+            (*ActorPtr)->Destroy();
+        }
+        SpawnedActors.Remove(LandmarkId);
+
+        // Remove from world state
+        WorldState.Landmarks.RemoveAll([&LandmarkId](const FWorldForgeLandmark& L) {
+            return L.Id == LandmarkId;
+        });
+
+        OnWorldStateChanged.Broadcast(WorldState);
+        UE_LOG(LogTemp, Log, TEXT("WorldForge: Destroyed settlement '%s'"), *LandmarkId);
+        return true;
+    }
+    return false;
+}
+
+void UWorldForgeSubsystem::DestroyAllSettlements()
+{
+    for (auto& Pair : SpawnedActors)
+    {
+        if (Pair.Value)
+        {
+            Pair.Value->Destroy();
+        }
+    }
+    SpawnedActors.Empty();
+    WorldState.Landmarks.Empty();
+    OnWorldStateChanged.Broadcast(WorldState);
+    UE_LOG(LogTemp, Log, TEXT("WorldForge: Destroyed all settlements"));
+}

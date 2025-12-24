@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { UE5Command, WorldState } from '../../shared/types'
+import type { UE5Command, WorldState, Landmark } from '../../shared/types'
 import { debugLog } from '../stores/debugStore'
 
 // ============================================================================
@@ -37,6 +37,7 @@ interface UE5BridgeStore extends UE5BridgeState {
   syncWorldState: (state: WorldState) => Promise<boolean>
   setTrait: (trait: keyof WorldState['traits'], value: number) => Promise<boolean>
   setAtmosphere: (atmosphere: WorldState['atmosphere']) => Promise<boolean>
+  spawnSettlement: (settlement: Landmark) => Promise<boolean>
 
   // For testing - reset state
   _reset: () => void
@@ -116,6 +117,11 @@ export const useUE5BridgeStore = create<UE5BridgeStore>((set, get) => ({
     return get().sendCommand({ type: 'SET_ATMOSPHERE', atmosphere })
   },
 
+  spawnSettlement: async (settlement) => {
+    debugLog.info(`Spawning settlement: ${settlement.name} (${settlement.type})`)
+    return get().sendCommand({ type: 'SPAWN_SETTLEMENT', settlement })
+  },
+
   // --------------------------------------------------------------------------
   // Testing Helper
   // --------------------------------------------------------------------------
@@ -182,6 +188,8 @@ export const ue5Bridge = {
     useUE5BridgeStore.getState().setTrait(trait, value),
   setAtmosphere: (atmosphere: WorldState['atmosphere']) =>
     useUE5BridgeStore.getState().setAtmosphere(atmosphere),
+  spawnSettlement: (settlement: Landmark) =>
+    useUE5BridgeStore.getState().spawnSettlement(settlement),
   getStatus: () => useUE5BridgeStore.getState().status,
   getLastError: () => useUE5BridgeStore.getState().lastError,
   subscribe: (listener: (state: UE5BridgeState) => void) => {

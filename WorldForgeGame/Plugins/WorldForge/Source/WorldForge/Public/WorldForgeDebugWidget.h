@@ -44,6 +44,9 @@ private:
     /** Atmosphere display text */
     TSharedPtr<STextBlock> AtmosphereText;
 
+    /** Landmark count display text */
+    TSharedPtr<STextBlock> LandmarkCountText;
+
     /** Progress bars for each trait */
     TSharedPtr<SProgressBar> MilitarismBar;
     TSharedPtr<SProgressBar> ProsperityBar;

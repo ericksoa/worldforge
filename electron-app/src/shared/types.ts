@@ -50,6 +50,8 @@ export interface TarotChoice {
   description: string
   traitEffects: Partial<WorldTraits>
   worldEvents: string[]
+  /** Landmarks to spawn when this choice is selected */
+  landmarks?: Landmark[]
   imagePrompt?: string
 }
 

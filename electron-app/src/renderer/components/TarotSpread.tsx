@@ -3,7 +3,9 @@ import { TarotCard } from './TarotCard'
 import { useWorldStore } from '../stores/worldStore'
 import { generateDilemma, generateImage } from '../services/claude'
 import { debugLog } from '../stores/debugStore'
-import type { TarotDilemma } from '../../shared/types'
+import { useUE5BridgeStore } from '../services/ue5-bridge'
+import type { TarotDilemma, Landmark } from '../../shared/types'
+import { v4 as uuidv4 } from 'uuid'
 
 // ============================================================================
 // Constants
@@ -141,6 +143,35 @@ async function generateChoiceImages(
 }
 
 // ============================================================================
+// Landmark Spawning
+// ============================================================================
+
+/**
+ * Spawn landmarks from a choice's structured landmark data.
+ */
+function spawnLandmarks(landmarks: Landmark[] | undefined): void {
+  if (!landmarks || landmarks.length === 0) return
+
+  const { spawnSettlement, status } = useUE5BridgeStore.getState()
+
+  // Only spawn if connected to UE5
+  if (status !== 'connected') {
+    debugLog.info('UE5 not connected, skipping landmark spawning')
+    return
+  }
+
+  for (const landmark of landmarks) {
+    // Add unique ID if not present (Claude may not include it)
+    const landmarkWithId: Landmark = {
+      ...landmark,
+      id: landmark.id || uuidv4(),
+    }
+    debugLog.info(`Spawning landmark: ${landmarkWithId.name} (${landmarkWithId.type})`)
+    spawnSettlement(landmarkWithId)
+  }
+}
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -200,6 +231,10 @@ export function TarotSpread() {
 
     setSelectedChoice(choice)
     recordChoice(currentDilemma, choice)
+
+    // Spawn landmarks from the selected choice
+    const selectedChoiceData = choice === 'A' ? currentDilemma.choiceA : currentDilemma.choiceB
+    spawnLandmarks(selectedChoiceData.landmarks)
 
     // Auto-advance to next card after brief delay
     setTimeout(() => {

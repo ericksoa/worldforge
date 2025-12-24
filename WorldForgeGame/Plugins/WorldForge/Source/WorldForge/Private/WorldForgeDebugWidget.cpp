@@ -73,7 +73,7 @@ TSharedRef<SWidget> UWorldForgeDebugWidget::RebuildWidget()
             // Atmosphere
             + SVerticalBox::Slot()
             .AutoHeight()
-            .Padding(0, 0, 0, 10)
+            .Padding(0, 0, 0, 2)
             [
                 SNew(SHorizontalBox)
                 + SHorizontalBox::Slot()
@@ -89,6 +89,28 @@ TSharedRef<SWidget> UWorldForgeDebugWidget::RebuildWidget()
                     SAssignNew(AtmosphereText, STextBlock)
                     .Text(FText::FromString(TEXT("Neutral")))
                     .ColorAndOpacity(FLinearColor::White)
+                ]
+            ]
+
+            // Landmarks Count
+            + SVerticalBox::Slot()
+            .AutoHeight()
+            .Padding(0, 0, 0, 10)
+            [
+                SNew(SHorizontalBox)
+                + SHorizontalBox::Slot()
+                .AutoWidth()
+                [
+                    SNew(STextBlock)
+                    .Text(FText::FromString(TEXT("Landmarks: ")))
+                    .ColorAndOpacity(FLinearColor::Gray)
+                ]
+                + SHorizontalBox::Slot()
+                .AutoWidth()
+                [
+                    SAssignNew(LandmarkCountText, STextBlock)
+                    .Text(FText::FromString(TEXT("0")))
+                    .ColorAndOpacity(FLinearColor(0.4f, 0.8f, 0.4f)) // Light green
                 ]
             ]
 
@@ -228,6 +250,11 @@ void UWorldForgeDebugWidget::UpdateWorldState(const FWorldForgeState& NewState)
     if (AtmosphereText.IsValid())
     {
         AtmosphereText->SetText(FText::FromString(GetAtmosphereName(NewState.Atmosphere)));
+    }
+
+    if (LandmarkCountText.IsValid())
+    {
+        LandmarkCountText->SetText(FText::FromString(FString::Printf(TEXT("%d"), NewState.Landmarks.Num())));
     }
 }
 

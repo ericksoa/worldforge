@@ -192,6 +192,7 @@ Generate a tarot card-style ethical dilemma that:
 4. Uses evocative, atmospheric medieval language
 5. Each choice should affect 2-3 traits (values between -0.2 and +0.2)
 6. Include an imagePrompt for each choice - a detailed description for generating a tarot card illustration in woodcut/medieval art style
+7. IMPORTANT: Include a "landmarks" array with at least one landmark per choice that will spawn as 3D structures
 
 IMPORTANT - Text length constraints for UI layout (strictly enforced):
 - Choice labels: Maximum 20 characters (e.g., "The Conqueror", "The Merchant")
@@ -210,6 +211,7 @@ Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
     "description": "2-3 sentences describing this philosophical path and its implications",
     "traitEffects": {"traitName": 0.15, "otherTrait": -0.1},
     "worldEvents": ["Specific visible change in the world", "Another consequence"],
+    "landmarks": [{"name": "Landmark Name", "type": "settlement|fortress|monastery|ruin|natural", "description": "Brief description"}],
     "imagePrompt": "Medieval woodcut style tarot card illustration of [detailed visual description], black and white with gold accents, symbolic imagery"
   },
   "choiceB": {
@@ -217,6 +219,7 @@ Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
     "description": "2-3 sentences describing this philosophical path and its implications",
     "traitEffects": {"traitName": 0.15, "otherTrait": -0.1},
     "worldEvents": ["Specific visible change in the world", "Another consequence"],
+    "landmarks": [{"name": "Landmark Name", "type": "settlement|fortress|monastery|ruin|natural", "description": "Brief description"}],
     "imagePrompt": "Medieval woodcut style tarot card illustration of [detailed visual description], black and white with gold accents, symbolic imagery"
   }
 }`
