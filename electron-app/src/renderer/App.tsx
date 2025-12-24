@@ -144,10 +144,6 @@ function App() {
       const connected = await connect()
       if (connected) {
         debugLog.info('Connected to UE5 successfully')
-        // Send a test command to trigger the debug widget
-        const { setTrait } = useUE5BridgeStore.getState()
-        await setTrait('militarism', 0.5)
-        debugLog.info('Sent test trait command to UE5')
       } else {
         debugLog.warn('Could not connect to UE5 - is the game running?')
       }
@@ -155,6 +151,46 @@ function App() {
 
     attemptConnection()
   }, [connect])
+
+  // --------------------------------------------------------------------------
+  // Sync world state changes to UE5
+  // --------------------------------------------------------------------------
+
+  useEffect(() => {
+    // Subscribe to worldStore changes and sync to UE5
+    const unsubscribe = useWorldStore.subscribe((state, prevState) => {
+      const { syncWorldState } = useUE5BridgeStore.getState()
+      const ue5Status = useUE5BridgeStore.getState().status
+
+      // Only sync if connected to UE5
+      if (ue5Status !== 'connected') return
+
+      // Check if traits changed
+      const traitsChanged = Object.keys(state.traits).some(
+        (key) => state.traits[key as keyof typeof state.traits] !== prevState.traits[key as keyof typeof prevState.traits]
+      )
+
+      // Check if atmosphere changed
+      const atmosphereChanged = state.atmosphere !== prevState.atmosphere
+
+      // Check if era changed
+      const eraChanged = state.era?.id !== prevState.era?.id
+
+      if (traitsChanged || atmosphereChanged || eraChanged) {
+        debugLog.info('World state changed, syncing to UE5')
+        syncWorldState({
+          era: state.era,
+          traits: state.traits,
+          atmosphere: state.atmosphere,
+          choices: state.choices,
+          factions: state.factions,
+          landmarks: state.landmarks,
+        })
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   // --------------------------------------------------------------------------
   // Navigation Handlers

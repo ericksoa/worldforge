@@ -325,6 +325,16 @@ void UWorldForgeSubsystem::HandleSyncWorldState(const TSharedPtr<FJsonObject>& D
     const TSharedPtr<FJsonObject>* StateObj;
     if (Data->TryGetObjectField(TEXT("state"), StateObj))
     {
+        // Parse era
+        const TSharedPtr<FJsonObject>* EraObj;
+        if ((*StateObj)->TryGetObjectField(TEXT("era"), EraObj))
+        {
+            (*EraObj)->TryGetStringField(TEXT("id"), WorldState.Era.Id);
+            (*EraObj)->TryGetStringField(TEXT("name"), WorldState.Era.Name);
+            (*EraObj)->TryGetStringField(TEXT("period"), WorldState.Era.Period);
+            (*EraObj)->TryGetStringField(TEXT("description"), WorldState.Era.Description);
+        }
+
         // Parse traits
         const TSharedPtr<FJsonObject>* TraitsObj;
         if ((*StateObj)->TryGetObjectField(TEXT("traits"), TraitsObj))
@@ -355,6 +365,13 @@ void UWorldForgeSubsystem::HandleSyncWorldState(const TSharedPtr<FJsonObject>& D
         }
 
         OnWorldStateChanged.Broadcast(WorldState);
+
+        // Update debug widget
+        if (DebugWidget)
+        {
+            DebugWidget->UpdateWorldState(WorldState);
+        }
+
         UE_LOG(LogTemp, Log, TEXT("WorldForge: World state synchronized"));
     }
 }
