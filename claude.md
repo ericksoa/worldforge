@@ -84,8 +84,8 @@ function createRecord(timestamp: number) {
 - ~~`getFallbackDilemma()` uses `Math.random()` for delay~~ ✅ Fixed: delay now injectable via options
 
 ### Priority 2: Separate Logging from Logic
-- `claude.ts` has `debugLog` calls throughout
-- `ue5-bridge.ts` has `console.log` in business methods
+- ~~`claude.ts` has `debugLog` calls throughout~~ ✅ Fixed: logging moved to public function boundaries
+- ~~`ue5-bridge.ts` has `console.log` in business methods~~ ✅ Fixed: converted to debugLog
 
 ### Priority 3: Make UE5Bridge Stateless
 - `UE5Bridge` class has internal mutable state

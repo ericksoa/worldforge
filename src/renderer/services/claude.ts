@@ -142,12 +142,23 @@ export async function generateDilemma(
   options: GenerateDilemmaOptions = {}
 ): Promise<TarotDilemma> {
   debugLog.info(`Generating dilemma for ${eraId}, card #${cardNumber}`)
+  debugLog.request('Calling Claude API...', { era: eraId, cardNumber })
 
-  const apiDilemma = await tryGenerateDilemmaFromAPI(eraId, currentTraits, cardNumber)
-  if (apiDilemma) {
-    return apiDilemma
+  const apiResult = await tryGenerateDilemmaFromAPI(eraId, currentTraits, cardNumber)
+
+  if (apiResult.success && apiResult.dilemma) {
+    debugLog.response(`Claude generated: "${apiResult.dilemma.cardName}"`)
+    return apiResult.dilemma
   }
 
+  // Log why we're falling back
+  if (apiResult.error) {
+    debugLog.error(`Claude API error: ${apiResult.error}`)
+  } else {
+    debugLog.error(`API returned unsuccessful: ${JSON.stringify(apiResult.rawResult)}`)
+  }
+
+  debugLog.info('Using mock dilemma data')
   return getFallbackDilemma(eraId, cardNumber, options.mockDelayMs)
 }
 
@@ -186,20 +197,28 @@ export async function generateImage(prompt: string): Promise<string | null> {
 // Internal Helpers
 // ============================================================================
 
-/** Attempt to generate a dilemma from the Claude API */
+/** Result from attempting to generate a dilemma via API */
+interface DilemmaAPIResult {
+  success: boolean
+  dilemma: TarotDilemma | null
+  error?: string
+  rawResult?: unknown
+}
+
+/**
+ * Attempt to generate a dilemma from the Claude API.
+ * Pure helper - returns result data, caller handles logging.
+ */
 async function tryGenerateDilemmaFromAPI(
   eraId: string,
   currentTraits: WorldTraits,
   cardNumber: number
-): Promise<TarotDilemma | null> {
+): Promise<DilemmaAPIResult> {
   if (!window.worldforge) {
-    debugLog.error('window.worldforge not available (preload issue?)')
-    return null
+    return { success: false, dilemma: null, error: 'window.worldforge not available (preload issue?)' }
   }
 
   try {
-    debugLog.request('Calling Claude API...', { era: eraId, cardNumber })
-
     const result = await window.worldforge.generateDilemma({
       era: eraId,
       traits: currentTraits,
@@ -207,16 +226,12 @@ async function tryGenerateDilemmaFromAPI(
     })
 
     if (result?.success && result.dilemma) {
-      const dilemma = result.dilemma as TarotDilemma
-      debugLog.response(`Claude generated: "${dilemma.cardName}"`)
-      return dilemma
+      return { success: true, dilemma: result.dilemma as TarotDilemma }
     }
 
-    debugLog.error(`API returned unsuccessful: ${JSON.stringify(result)}`)
-    return null
+    return { success: false, dilemma: null, rawResult: result }
   } catch (err) {
-    debugLog.error(`Claude API error: ${err}`)
-    return null
+    return { success: false, dilemma: null, error: String(err) }
   }
 }
 
@@ -227,6 +242,7 @@ function calculateMockDelay(): number {
 
 /**
  * Get a mock dilemma as fallback when API is unavailable.
+ * Pure helper - no logging, caller handles that.
  * @param delayMs - Injectable delay in ms for testing (defaults to random 800-1200ms)
  */
 async function getFallbackDilemma(
@@ -234,8 +250,6 @@ async function getFallbackDilemma(
   cardNumber: number,
   delayMs: number = calculateMockDelay()
 ): Promise<TarotDilemma> {
-  debugLog.info('Using mock dilemma data')
-
   const dilemmasForEra = MOCK_DILEMMAS[eraId] ?? MOCK_DILEMMAS['normandy_10th']
   const dilemmaIndex = (cardNumber - 1) % dilemmasForEra.length
   const dilemma = { ...dilemmasForEra[dilemmaIndex], cardNumber }

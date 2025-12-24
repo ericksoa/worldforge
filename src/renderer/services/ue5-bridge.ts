@@ -1,5 +1,6 @@
 import * as React from 'react'
 import type { UE5Command, WorldState } from '../../shared/types'
+import { debugLog } from '../stores/debugStore'
 
 // ============================================================================
 // Types
@@ -134,7 +135,7 @@ class UE5Bridge {
     this.setState({
       commandQueue: [...this.state.commandQueue, command],
     })
-    console.log('UE5 not connected, command queued:', command.type)
+    debugLog.info(`UE5 not connected, command queued: ${command.type}`)
   }
 
   private async executeCommand(command: UE5Command): Promise<boolean> {
@@ -145,7 +146,7 @@ class UE5Bridge {
       const result = await window.worldforge.sendToUE5(command)
       return result.success
     } catch (err) {
-      console.error('Failed to send command to UE5:', err)
+      debugLog.error(`Failed to send command to UE5: ${err}`)
       return false
     }
   }
