@@ -160,6 +160,11 @@ Generate a tarot card-style ethical dilemma that:
 5. Each choice should affect 2-3 traits (values between -0.2 and +0.2)
 6. Include an imagePrompt for each choice - a detailed description for generating a tarot card illustration in woodcut/medieval art style
 
+IMPORTANT - Text length constraints for UI layout (strictly enforced):
+- Choice labels: Maximum 20 characters (e.g., "The Conqueror", "The Merchant")
+- Choice descriptions: Maximum 150 characters
+- World events: Maximum 80 characters each
+
 Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
 {
   "id": "unique_snake_case_id",

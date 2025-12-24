@@ -15,6 +15,9 @@ const IMAGE_GENERATION_DELAY_MS = 12000
 /** Minimum number of progress dots to show */
 const MIN_PROGRESS_DOTS = 5
 
+/** Delay before auto-advancing to next card after selection (ms) */
+const AUTO_ADVANCE_DELAY_MS = 1500
+
 // ============================================================================
 // Helper Components
 // ============================================================================
@@ -190,11 +193,12 @@ export function TarotSpread() {
 
     setSelectedChoice(choice)
     recordChoice(currentDilemma, choice)
-  }
 
-  const handleNextCard = () => {
-    setCurrentDilemma(null)
-    loadNewDilemma()
+    // Auto-advance to next card after brief delay
+    setTimeout(() => {
+      setCurrentDilemma(null)
+      loadNewDilemma()
+    }, AUTO_ADVANCE_DELAY_MS)
   }
 
   // --------------------------------------------------------------------------
@@ -255,15 +259,6 @@ export function TarotSpread() {
           disabled={selectedChoice !== null}
         />
       </div>
-
-      {/* Continue button */}
-      {selectedChoice && (
-        <div className="mt-4 animate-fade-in">
-          <button onClick={handleNextCard} className="btn-medieval">
-            Draw Next Card
-          </button>
-        </div>
-      )}
 
       {/* Choice history hint */}
       {choices.length > 0 && (

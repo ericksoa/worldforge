@@ -24,9 +24,6 @@ export interface TarotCardProps {
 /** Roman numerals for card numbers (supports 1-10) */
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'] as const
 
-/** Delay before auto-selecting after card flip (ms) */
-const AUTO_SELECT_DELAY_MS = 600
-
 // ============================================================================
 // Helper Components
 // ============================================================================
@@ -99,12 +96,16 @@ export function TarotCard({
   const numeral = ROMAN_NUMERALS[cardNumber - 1] || cardNumber.toString()
   const isInteractive = !disabled && !isFlipped
 
-  const handleClick = () => {
-    if (disabled) return
+  const handleCardClick = () => {
+    if (disabled || isSelected) return
+    // Toggle flip state for preview
+    setIsFlipped(!isFlipped)
+  }
 
-    if (!isFlipped) {
-      setIsFlipped(true)
-      setTimeout(onSelect, AUTO_SELECT_DELAY_MS)
+  const handleConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation() // Don't trigger card flip
+    if (!disabled && !isSelected) {
+      onSelect()
     }
   }
 
@@ -122,7 +123,7 @@ export function TarotCard({
   return (
     <div
       className={cardClasses}
-      onClick={handleClick}
+      onClick={handleCardClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -143,7 +144,7 @@ export function TarotCard({
             </div>
 
             {/* Choice Label */}
-            <h3 className="font-medieval text-2xl text-gold-400 text-center mb-2 text-glow leading-tight">
+            <h3 className="font-medieval text-2xl text-gold-400 text-center mb-2 text-glow leading-tight overflow-hidden whitespace-nowrap">
               {choice.label}
             </h3>
 
@@ -157,7 +158,7 @@ export function TarotCard({
             </div>
 
             {/* Choice description */}
-            <p className="text-parchment-300 text-sm leading-relaxed text-center font-body flex-1 px-1 overflow-hidden">
+            <p className="text-parchment-300 text-sm leading-relaxed text-center font-body px-1">
               {choice.description}
             </p>
 
@@ -184,15 +185,24 @@ export function TarotCard({
           }`}
         >
           <div className="relative h-full p-6 flex flex-col">
-            {/* Chosen badge */}
+            {/* Status badge or confirm button */}
             <div className="text-center mb-3">
-              <span className="px-5 py-1.5 bg-burgundy-800 text-parchment-100 text-sm font-medieval rounded-full uppercase tracking-wider">
-                Path Chosen
-              </span>
+              {isSelected ? (
+                <span className="px-5 py-1.5 bg-burgundy-800 text-parchment-100 text-sm font-medieval rounded-full uppercase tracking-wider">
+                  Path Chosen
+                </span>
+              ) : (
+                <button
+                  onClick={handleConfirm}
+                  className="px-6 py-2 bg-gold-400 hover:bg-gold-300 text-charcoal-900 font-bold font-medieval rounded-full uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-gold-500/30 hover:shadow-gold-400/50 ring-2 ring-gold-500"
+                >
+                  Choose This Path
+                </button>
+              )}
             </div>
 
             {/* Choice Label */}
-            <h3 className="font-medieval text-3xl text-burgundy-900 text-center mb-4 leading-tight">
+            <h3 className="font-medieval text-3xl text-burgundy-900 text-center mb-4 leading-tight overflow-hidden whitespace-nowrap">
               {choice.label}
             </h3>
 
@@ -212,7 +222,7 @@ export function TarotCard({
                 {choice.worldEvents.map((event, i) => (
                   <li key={i} className="flex items-start gap-3 text-charcoal-800 text-base font-body">
                     <span className="text-burgundy-600 mt-1 text-lg">✦</span>
-                    <span>{event}</span>
+                    <span className="line-clamp-2">{event}</span>
                   </li>
                 ))}
               </ul>

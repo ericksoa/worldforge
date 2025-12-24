@@ -111,15 +111,16 @@ describe('TarotCard', () => {
       expect(card).toHaveClass('flipped')
     })
 
-    it('should call onSelect after flip animation (600ms)', async () => {
+    it('should call onSelect when "Choose This Path" button is clicked', async () => {
       render(<TarotCard {...defaultProps} />)
       const card = screen.getAllByText('The Conqueror')[0].closest('.card-flip')
 
+      // First click flips the card
       fireEvent.click(card!)
 
-      expect(defaultProps.onSelect).not.toHaveBeenCalled()
-
-      vi.advanceTimersByTime(600)
+      // Now click the confirm button
+      const confirmButton = screen.getByText('Choose This Path')
+      fireEvent.click(confirmButton)
 
       expect(defaultProps.onSelect).toHaveBeenCalledTimes(1)
     })
@@ -134,17 +135,21 @@ describe('TarotCard', () => {
       expect(defaultProps.onSelect).not.toHaveBeenCalled()
     })
 
-    it('should not call onSelect multiple times on multiple clicks', () => {
+    it('should toggle flip state on multiple card clicks', () => {
       render(<TarotCard {...defaultProps} />)
       const card = screen.getAllByText('The Conqueror')[0].closest('.card-flip')
 
+      // First click: flip
       fireEvent.click(card!)
-      fireEvent.click(card!)
-      fireEvent.click(card!)
+      expect(card).toHaveClass('flipped')
 
-      vi.advanceTimersByTime(600)
+      // Second click: unflip
+      fireEvent.click(card!)
+      expect(card).not.toHaveClass('flipped')
 
-      expect(defaultProps.onSelect).toHaveBeenCalledTimes(1)
+      // Third click: flip again
+      fireEvent.click(card!)
+      expect(card).toHaveClass('flipped')
     })
   })
 
@@ -169,14 +174,20 @@ describe('TarotCard', () => {
   })
 
   describe('selected state', () => {
-    it('should show "Path Chosen" badge when flipped', () => {
+    it('should show "Choose This Path" button when flipped but not selected', () => {
       render(<TarotCard {...defaultProps} />)
       const card = screen.getAllByText('The Conqueror')[0].closest('.card-flip')
 
       fireEvent.click(card!)
 
-      // The "Path Chosen" text is on the back face
+      expect(screen.getByText('Choose This Path')).toBeInTheDocument()
+    })
+
+    it('should show "Path Chosen" badge when isSelected is true', () => {
+      render(<TarotCard {...defaultProps} isSelected={true} />)
+
       expect(screen.getByText('Path Chosen')).toBeInTheDocument()
+      expect(screen.queryByText('Choose This Path')).not.toBeInTheDocument()
     })
 
     it('should show world events when flipped', () => {
