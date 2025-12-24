@@ -80,7 +80,7 @@ function createRecord(timestamp: number) {
 
 ### Priority 1: Extract Pure Business Logic
 - ~~`worldStore.recordChoice()` mixes state update with timestamp generation~~ ✅ Fixed: timestamp now injectable
-- `debugStore.addLog()` generates timestamp internally
+- ~~`debugStore.addLog()` generates timestamp internally~~ ✅ Fixed: timestamp now injectable
 - `getFallbackDilemma()` uses `Math.random()` for delay
 
 ### Priority 2: Separate Logging from Logic

@@ -28,7 +28,8 @@ interface DebugStore {
   logs: DebugLogEntry[]
   isOpen: boolean
   nextId: number
-  addLog: (type: LogType, message: string, data?: unknown) => void
+  /** Add a log entry. Timestamp is injectable for testing (defaults to new Date()). */
+  addLog: (type: LogType, message: string, data?: unknown, timestamp?: Date) => void
   clearLogs: () => void
   togglePanel: () => void
 }
@@ -38,10 +39,10 @@ export const useDebugStore = create<DebugStore>((set, get) => ({
   isOpen: true,
   nextId: 1,
 
-  addLog: (type, message, data) => {
+  addLog: (type, message, data, timestamp = new Date()) => {
     const newEntry: DebugLogEntry = {
       id: get().nextId,
-      timestamp: new Date(),
+      timestamp,
       type,
       message,
       data,

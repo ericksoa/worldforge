@@ -47,7 +47,7 @@ describe('debugStore', () => {
       expect(logs[1].id).toBe(2)
     })
 
-    it('should include timestamp', () => {
+    it('should include timestamp (defaults to new Date)', () => {
       const before = new Date()
       useDebugStore.getState().addLog('info', 'Test')
       const after = new Date()
@@ -55,6 +55,15 @@ describe('debugStore', () => {
       const timestamp = useDebugStore.getState().logs[0].timestamp
       expect(timestamp.getTime()).toBeGreaterThanOrEqual(before.getTime())
       expect(timestamp.getTime()).toBeLessThanOrEqual(after.getTime())
+    })
+
+    it('should use injected timestamp when provided (deterministic)', () => {
+      const fixedTimestamp = new Date('2024-01-15T12:00:00.000Z')
+      useDebugStore.getState().addLog('info', 'Test', undefined, fixedTimestamp)
+
+      const timestamp = useDebugStore.getState().logs[0].timestamp
+      expect(timestamp).toBe(fixedTimestamp)
+      expect(timestamp.toISOString()).toBe('2024-01-15T12:00:00.000Z')
     })
 
     it('should keep only last 50 logs', () => {
