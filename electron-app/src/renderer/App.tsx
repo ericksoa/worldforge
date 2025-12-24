@@ -1,9 +1,10 @@
-import { useState, Component, type ReactNode } from 'react'
+import { useState, useEffect, Component, type ReactNode } from 'react'
 import { EraSelector } from './components/EraSelector'
 import { TarotSpread } from './components/TarotSpread'
 import { WorldPreview } from './components/WorldPreview'
 import { DebugPanel } from './components/DebugPanel'
 import { useWorldStore } from './stores/worldStore'
+import { useUE5BridgeStore } from './services/ue5-bridge'
 import { debugLog } from './stores/debugStore'
 import type { Era } from '../shared/types'
 
@@ -130,6 +131,30 @@ function EraHeader({
 function App() {
   const [screen, setScreen] = useState<Screen>('era-select')
   const { era, setEra, resetWorld } = useWorldStore()
+  const { connect, status } = useUE5BridgeStore()
+
+  // --------------------------------------------------------------------------
+  // Auto-connect to UE5 on mount
+  // --------------------------------------------------------------------------
+
+  useEffect(() => {
+    // Try to connect to UE5 when app starts
+    const attemptConnection = async () => {
+      debugLog.info('Attempting to connect to UE5...')
+      const connected = await connect()
+      if (connected) {
+        debugLog.info('Connected to UE5 successfully')
+        // Send a test command to trigger the debug widget
+        const { setTrait } = useUE5BridgeStore.getState()
+        await setTrait('militarism', 0.5)
+        debugLog.info('Sent test trait command to UE5')
+      } else {
+        debugLog.warn('Could not connect to UE5 - is the game running?')
+      }
+    }
+
+    attemptConnection()
+  }, [connect])
 
   // --------------------------------------------------------------------------
   // Navigation Handlers

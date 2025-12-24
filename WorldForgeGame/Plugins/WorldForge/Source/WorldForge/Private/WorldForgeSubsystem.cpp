@@ -1,7 +1,11 @@
 #include "WorldForgeSubsystem.h"
 #include "WorldForgeWebSocketServer.h"
+#include "WorldForgeDebugWidget.h"
 #include "Json.h"
 #include "JsonUtilities.h"
+#include "Blueprint/UserWidget.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
 
 void UWorldForgeSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -16,10 +20,15 @@ void UWorldForgeSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 #if WITH_EDITOR
     StartServer();
 #endif
+
+    // Always show debug widget - poll until PlayerController is available
+    bWantsDebugWidget = true;
 }
 
 void UWorldForgeSubsystem::Deinitialize()
 {
+    bWantsDebugWidget = false;
+    HideDebugWidget();
     StopServer();
 
     if (WebSocketServer)
@@ -32,6 +41,16 @@ void UWorldForgeSubsystem::Deinitialize()
     UE_LOG(LogTemp, Log, TEXT("WorldForge: Subsystem deinitialized"));
 }
 
+void UWorldForgeSubsystem::Tick(float DeltaTime)
+{
+    // Try to show the debug widget if we want it but don't have it yet
+    if (bWantsDebugWidget && !DebugWidget)
+    {
+        UE_LOG(LogTemp, Log, TEXT("WorldForge: Tick - attempting to show debug widget"));
+        ShowDebugWidget();
+    }
+}
+
 void UWorldForgeSubsystem::StartServer(int32 Port)
 {
     if (WebSocketServer && !WebSocketServer->IsRunning())
@@ -40,6 +59,11 @@ void UWorldForgeSubsystem::StartServer(int32 Port)
         {
             UE_LOG(LogTemp, Log, TEXT("WorldForge: Server started on port %d"), Port);
             OnConnectionStatusChanged.Broadcast(true);
+
+            if (DebugWidget)
+            {
+                DebugWidget->SetConnectionStatus(true);
+            }
         }
         else
         {
@@ -55,6 +79,11 @@ void UWorldForgeSubsystem::StopServer()
         WebSocketServer->StopServer();
         UE_LOG(LogTemp, Log, TEXT("WorldForge: Server stopped"));
         OnConnectionStatusChanged.Broadcast(false);
+
+        if (DebugWidget)
+        {
+            DebugWidget->SetConnectionStatus(false);
+        }
     }
 }
 
@@ -63,10 +92,75 @@ bool UWorldForgeSubsystem::IsServerRunning() const
     return WebSocketServer && WebSocketServer->IsRunning();
 }
 
+void UWorldForgeSubsystem::ShowDebugWidget()
+{
+    if (DebugWidget)
+    {
+        return; // Already visible
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("WorldForge: ShowDebugWidget called"));
+
+    // Get the first local player controller
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("WorldForge: Cannot show debug widget - no world"));
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("WorldForge: Got world, looking for player controller"));
+
+    APlayerController* PC = World->GetFirstPlayerController();
+    if (!PC)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("WorldForge: Cannot show debug widget - no player controller"));
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("WorldForge: Got player controller, creating widget"));
+
+    // Create and add the widget
+    DebugWidget = CreateWidget<UWorldForgeDebugWidget>(PC, UWorldForgeDebugWidget::StaticClass());
+    if (DebugWidget)
+    {
+        DebugWidget->AddToViewport(100); // High Z-order to appear on top
+        DebugWidget->UpdateWorldState(WorldState);
+        DebugWidget->SetConnectionStatus(IsServerRunning());
+        UE_LOG(LogTemp, Log, TEXT("WorldForge: Debug widget created and added to viewport"));
+        bWantsDebugWidget = false; // Stop polling
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("WorldForge: Failed to create debug widget!"));
+    }
+}
+
+void UWorldForgeSubsystem::HideDebugWidget()
+{
+    if (DebugWidget)
+    {
+        DebugWidget->RemoveFromParent();
+        DebugWidget = nullptr;
+        UE_LOG(LogTemp, Log, TEXT("WorldForge: Debug widget hidden"));
+    }
+}
+
+bool UWorldForgeSubsystem::IsDebugWidgetVisible() const
+{
+    return DebugWidget != nullptr && DebugWidget->IsInViewport();
+}
+
 void UWorldForgeSubsystem::SetWorldState(const FWorldForgeState& NewState)
 {
     WorldState = NewState;
     OnWorldStateChanged.Broadcast(WorldState);
+
+    // Update debug widget if visible
+    if (DebugWidget)
+    {
+        DebugWidget->UpdateWorldState(WorldState);
+    }
 }
 
 float UWorldForgeSubsystem::GetTrait(EWorldForgeTrait Trait) const
@@ -78,6 +172,12 @@ void UWorldForgeSubsystem::SetTrait(EWorldForgeTrait Trait, float Value)
 {
     WorldState.SetTrait(Trait, Value);
     OnWorldStateChanged.Broadcast(WorldState);
+
+    // Update debug widget if visible
+    if (DebugWidget)
+    {
+        DebugWidget->UpdateWorldState(WorldState);
+    }
 }
 
 void UWorldForgeSubsystem::ProcessCommand(const FString& CommandJson)
@@ -258,3 +358,4 @@ void UWorldForgeSubsystem::HandleSyncWorldState(const TSharedPtr<FJsonObject>& D
         UE_LOG(LogTemp, Log, TEXT("WorldForge: World state synchronized"));
     }
 }
+

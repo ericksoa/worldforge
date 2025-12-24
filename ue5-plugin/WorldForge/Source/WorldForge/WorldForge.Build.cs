@@ -12,7 +12,8 @@ public class WorldForge : ModuleRules
                 "Core",
                 "CoreUObject",
                 "Engine",
-                "WebSockets",
+                "Sockets",
+                "Networking",
                 "Json",
                 "JsonUtilities"
             }
@@ -22,7 +23,8 @@ public class WorldForge : ModuleRules
             new string[]
             {
                 "Slate",
-                "SlateCore"
+                "SlateCore",
+                "UMG"
             }
         );
     }

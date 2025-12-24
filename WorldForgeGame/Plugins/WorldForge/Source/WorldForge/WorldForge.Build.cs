@@ -23,7 +23,8 @@ public class WorldForge : ModuleRules
             new string[]
             {
                 "Slate",
-                "SlateCore"
+                "SlateCore",
+                "UMG"
             }
         );
     }
