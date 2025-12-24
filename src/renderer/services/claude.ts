@@ -176,19 +176,19 @@ export async function generateImage(prompt: string): Promise<string | null> {
   }
 
   try {
-    debugLog.request('Calling Replicate API...', { prompt: prompt.substring(0, 100) })
+    debugLog.request('Requesting image...', { prompt: prompt.substring(0, 100) })
 
     const result = await window.worldforge.generateImage({ prompt })
 
     if (result?.success && result.imageUrl) {
-      debugLog.response('Image generated successfully')
+      debugLog.response('Image received')
       return result.imageUrl
     }
 
     debugLog.error(`Image generation failed: ${JSON.stringify(result)}`)
     return null
   } catch (err) {
-    debugLog.error(`Replicate API error: ${err}`)
+    debugLog.error(`Image request error: ${err}`)
     return null
   }
 }

@@ -32,6 +32,7 @@ interface ImageResult {
 interface ServicesStatus {
   claude: boolean
   replicate: boolean
+  mockImages: boolean
 }
 
 interface UE5Result {

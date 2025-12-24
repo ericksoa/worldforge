@@ -95,6 +95,29 @@ function createRecord(timestamp: number) {
 - ~~`UE5Bridge` class has internal mutable state~~ ✅ Fixed: converted to Zustand store
 - ~~Consider making it a pure module with state in Zustand~~ ✅ Done: state now in useUE5BridgeStore
 
+## Development Features
+
+### Mock Images for Development
+
+To speed up development and avoid API costs, the app can use pre-generated placeholder images instead of calling the Replicate API:
+
+```bash
+# In .env - set to 'true' to use mock images (default in dev)
+USE_MOCK_IMAGES=true
+```
+
+**How it works:**
+- 31 pre-generated tarot-style images are stored in `src/renderer/assets/placeholder-images/`
+- When mock mode is enabled, images are served via a custom `placeholder-image://` protocol
+- The same prompt always returns the same placeholder (deterministic via hash)
+- Set `USE_MOCK_IMAGES=false` to use live Replicate API
+
+**To regenerate placeholder images:**
+```bash
+npx tsx scripts/generate-placeholder-images.ts
+```
+This takes ~35 minutes due to API rate limits.
+
 ## Recommended Patterns
 
 ### Pure Trait Calculations

@@ -109,7 +109,11 @@ async function generateChoiceImages(
     return
   }
 
-  debugLog.info('Starting image generation (sequential)...')
+  // Check if we're using mock images (no delay needed)
+  const serviceStatus = await window.worldforge?.getServicesStatus()
+  const useMockImages = serviceStatus?.mockImages ?? false
+
+  debugLog.info(`Starting image generation (${useMockImages ? 'mock' : 'sequential'})...`)
 
   try {
     if (choiceA.imagePrompt) {
@@ -121,7 +125,10 @@ async function generateChoiceImages(
     }
 
     if (choiceB.imagePrompt) {
-      await new Promise((resolve) => setTimeout(resolve, IMAGE_GENERATION_DELAY_MS))
+      // Only delay if using real API (to avoid rate limits)
+      if (!useMockImages) {
+        await new Promise((resolve) => setTimeout(resolve, IMAGE_GENERATION_DELAY_MS))
+      }
       const urlB = await generateImage(choiceB.imagePrompt)
       if (urlB) {
         debugLog.response('Image B generated')

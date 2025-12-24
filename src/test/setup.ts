@@ -5,7 +5,7 @@ import { vi } from 'vitest'
 export const mockWorldforge = {
   generateDilemma: vi.fn(),
   generateImage: vi.fn(),
-  getServicesStatus: vi.fn(),
+  getServicesStatus: vi.fn().mockResolvedValue({ claude: true, replicate: true, mockImages: true }),
   connectToUE5: vi.fn(),
   sendToUE5: vi.fn(),
   platform: 'darwin',

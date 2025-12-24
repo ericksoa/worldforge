@@ -1,9 +1,11 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import Anthropic from '@anthropic-ai/sdk'
 import Replicate from 'replicate'
 import { config } from 'dotenv'
+import { getSeededPlaceholderFilename } from '../shared/placeholder-images'
 
 // ============================================================================
 // Configuration
@@ -38,6 +40,14 @@ const SDXL_CONFIG = {
   negative_prompt: 'blurry, low quality, modern, photorealistic, 3d render, cartoon, anime',
 } as const
 
+/** Custom protocol for serving placeholder images */
+const PLACEHOLDER_PROTOCOL = 'placeholder-image'
+
+/** Directory containing placeholder images (relative to app root in dev, or resources in prod) */
+const PLACEHOLDER_IMAGES_DIR = is.dev
+  ? join(__dirname, '../../src/renderer/assets/placeholder-images')
+  : join(process.resourcesPath, 'placeholder-images')
+
 /** Era descriptions for better prompt context */
 const ERA_CONTEXTS: Record<string, string> = {
   normandy_10th:
@@ -60,6 +70,7 @@ const ERA_CONTEXTS: Record<string, string> = {
 let mainWindow: BrowserWindow | null = null
 let anthropic: Anthropic | null = null
 let replicate: Replicate | null = null
+let useMockImages = false
 
 // ============================================================================
 // Service Initialization
@@ -89,6 +100,26 @@ function initReplicate(): boolean {
   replicate = new Replicate({ auth: apiToken })
   console.log('Replicate API initialized')
   return true
+}
+
+/** Initialize mock image mode based on environment variable */
+function initMockImages(): void {
+  const envValue = process.env.USE_MOCK_IMAGES
+  useMockImages = envValue === 'true' || (envValue === undefined && is.dev)
+
+  if (useMockImages) {
+    console.log('Mock images enabled - using placeholder images instead of Replicate API')
+    console.log('Placeholder images directory:', PLACEHOLDER_IMAGES_DIR)
+  }
+}
+
+/** Register custom protocol for serving placeholder images */
+function registerPlaceholderProtocol(): void {
+  protocol.handle(PLACEHOLDER_PROTOCOL, (request) => {
+    const filename = request.url.replace(`${PLACEHOLDER_PROTOCOL}://`, '')
+    const filepath = join(PLACEHOLDER_IMAGES_DIR, filename)
+    return net.fetch(pathToFileURL(filepath).toString())
+  })
 }
 
 // ============================================================================
@@ -263,6 +294,14 @@ async function handleGenerateImage(
 ): Promise<{ success: boolean; imageUrl: string | null; error?: string }> {
   console.log('Received image generation request:', prompt.substring(0, 50) + '...')
 
+  // Use mock images if enabled
+  if (useMockImages) {
+    const filename = getSeededPlaceholderFilename(prompt)
+    const imageUrl = `${PLACEHOLDER_PROTOCOL}://${filename}`
+    console.log('Using mock image:', imageUrl)
+    return { success: true, imageUrl }
+  }
+
   if (!replicate) {
     console.log('Replicate not initialized')
     return { success: false, imageUrl: null }
@@ -301,6 +340,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('services:status', () => ({
     claude: anthropic !== null,
     replicate: replicate !== null,
+    mockImages: useMockImages,
   }))
 
   // UE5 Bridge (placeholder implementation)
@@ -322,9 +362,13 @@ function registerIpcHandlers(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.worldforge.app')
 
+  // Register custom protocols (must be done before app is ready)
+  registerPlaceholderProtocol()
+
   // Initialize services
   initClaude()
   initReplicate()
+  initMockImages()
 
   // Register IPC handlers
   registerIpcHandlers()
